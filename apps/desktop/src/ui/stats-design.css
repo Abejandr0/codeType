@@ -1,0 +1,26 @@
+.nav-item.battle-nav:not(.active){border:1px solid #287b61;color:#5fd49a;background:#191f26}
+.nav-item.battle-nav:not(.active) svg{color:#5fd49a}
+.stats-layout-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(330px,1fr);gap:14px;align-items:start}
+.stats-column{display:grid;align-content:start;gap:14px}
+.stats-summary h3,.stats-heatmap h3,.stats-error-ranking h3{margin:0 0 12px}
+.stats-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.stats-summary-grid>div{min-height:68px;padding:10px;background:#282a39;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;gap:7px}
+.stats-summary-grid span{font-size:9px;line-height:1.35;color:var(--muted)}
+.stats-summary-grid strong{font-size:14px;color:#9eabff;white-space:nowrap}
+.stats-heatmap .muted{margin:0}
+.stats-error-ranking .error-ranking{gap:6px}
+.stats-error-ranking .error-ranking>div{display:grid;grid-template-columns:minmax(54px,.3fr) minmax(70px,1fr) 35px;align-items:center;gap:9px;border:0;padding:4px 0}
+.stats-error-ranking .error-ranking b{padding:5px 7px;border-radius:6px;background:#292c39;color:#e5e7f2;font-size:10px;text-align:center;overflow:hidden;text-overflow:ellipsis}
+.stats-error-ranking .error-ranking .progress-track{height:7px;background:#333645}
+.stats-error-ranking .error-ranking .progress-track span{background:linear-gradient(90deg,#7b8cff,#5fd49a)}
+.stats-error-ranking .error-ranking>div>span{font-size:10px;color:var(--text);text-align:right}
+.stats-chart .card-title-row{align-items:flex-start;gap:8px}
+.stats-chart .card-title-row h3{margin:0}
+.stats-chart .card-title-row .muted{font-size:8px;text-align:right}
+.stats-chart .chart-wrap{height:215px}
+.chart-legend{display:flex;gap:14px;color:var(--muted);font-size:9px;margin-top:5px}
+.chart-legend span{display:flex;align-items:center;gap:5px}
+.chart-legend i{display:inline-block;width:8px;height:8px;border-radius:50%}
+.legend-wpm{background:#7b8cff}.legend-accuracy{background:#5fd49a}
+.battle-history{margin-top:14px}
+@media(max-width:1100px){.stats-layout-grid{grid-template-columns:minmax(0,1fr)}.stats-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

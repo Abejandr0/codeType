@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+model User {
+  id             String          @id @default(cuid())
+  name           String
+  email          String          @unique
+  passwordHash   String
+  timezone       String          @default("America/Bogota")
+  xp             Int             @default(0)
+  rating         Int             @default(1000)
+  settings       UserSettings?
+  lessonAttempts LessonAttempt[]
+  keystrokes     Keystroke[]
+  refreshTokens  RefreshToken[]
+  battleEntries  BattleParticipant[]
+  friendRequestsSent FriendRequest[] @relation("FriendRequestSender")
+  friendRequestsReceived FriendRequest[] @relation("FriendRequestReceiver")
+  friendshipsOne FriendConnection[] @relation("FriendshipUserOne")
+  friendshipsTwo FriendConnection[] @relation("FriendshipUserTwo")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+model UserSettings {
+  id                String  @id @default(cuid())
+  userId            String  @unique
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interfaceLanguage String  @default("ES")
+  keyboardLayout    String  @default("ES")
+  defaultLanguage   String  @default("Python")
+  editorFontSize    Int     @default(18)
+  sounds            Boolean @default(true)
+  dailyGoalMinutes  Int     @default(20)
+  notifications     Boolean @default(true)
+}
+model Lesson {
+  id          String          @id
+  language    String
+  path        String
+  title       String
+  level       Int
+  code        String          @db.Text
+  tip         String          @db.Text
+  minAccuracy Int             @default(85)
+  attempts    LessonAttempt[]
+  battles     Battle[]
+  createdAt   DateTime        @default(now())
+}
+model LessonAttempt {
+  id         String   @id @default(cuid())
+  userId     String
+  lessonId   String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson     Lesson   @relation(fields: [lessonId], references: [id])
+  wpm        Float
+  accuracy   Float
+  errors     Int
+  durationMs Int
+  passed     Boolean
+  createdAt  DateTime @default(now())
+  @@index([userId, createdAt])
+}
+model Keystroke {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expected  String
+  actual    String
+  elapsedMs Int
+  correct   Boolean
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+model Battle {
+  id           String              @id @default(cuid())
+  lessonId     String
+  lesson       Lesson              @relation(fields: [lessonId], references: [id])
+  startedAt    DateTime
+  finishedAt   DateTime?
+  winnerId     String?
+  participants BattleParticipant[]
+  createdAt    DateTime            @default(now())
+}
+model BattleParticipant {
+  id            String   @id @default(cuid())
+  battleId      String
+  userId        String
+  battle        Battle   @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wpm           Float    @default(0)
+  accuracy      Float    @default(100)
+  errors        Int      @default(0)
+  ratingBefore  Int?
+  ratingAfter   Int?
+  abandoned     Boolean  @default(false)
+  @@unique([battleId, userId])
+}
+model FriendRequest {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     String   @default("PENDING")
+  sender     User     @relation("FriendRequestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("FriendRequestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@unique([senderId, receiverId])
+  @@index([receiverId, status])
+}
+model FriendConnection {
+  id        String   @id @default(cuid())
+  userOneId String
+  userTwoId String
+  userOne   User     @relation("FriendshipUserOne", fields: [userOneId], references: [id], onDelete: Cascade)
+  userTwo   User     @relation("FriendshipUserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([userOneId, userTwoId])
+  @@index([userTwoId])
+}

@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: codetype
+      POSTGRES_PASSWORD: codetype
+      POSTGRES_DB: codetype
+    ports: ["5433:5432"]
+    volumes: ["codetype_pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codetype -d codetype"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  codetype_pg:
