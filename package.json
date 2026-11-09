@@ -11,7 +11,10 @@
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm --workspace apps/desktop run test:e2e",
     "seed": "npm --workspace apps/server run seed",
-    "db:migrate": "npm --workspace apps/server run db:migrate"
+    "db:migrate": "npm --workspace apps/server run db:migrate",
+    "package:linux": "npm --workspace apps/desktop run package:linux",
+    "package:mac": "npm --workspace apps/desktop run package:mac",
+    "package:windows": "npm --workspace apps/desktop run package:windows"
   },
   "devDependencies": { "concurrently": "^9.1.2", "typescript": "^5.7.3" }
 }

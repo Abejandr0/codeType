@@ -12,7 +12,7 @@ test('registers, loads seeded exercises, and saves a completed typing attempt', 
   await expect(page.getByRole('heading', { name: 'Ejercicios' })).toBeVisible();
   await expect(page.getByText('Mostrar un mensaje')).toBeVisible();
   await page.getByRole('link', { name: /Mostrar un mensaje/ }).click();
-  const input = page.getByRole('textbox', { name: 'Escribe el código mostrado' });
+  const input = page.getByRole('textbox', { name: 'Escribe el código tal como aparece. Pegar está desactivado.' });
   await input.focus();
   const savedAttempt = page.waitForResponse(response => response.url().includes('/lessons/complete') && response.request().method() === 'POST');
   await page.keyboard.type('print("Hola, mundo")', { delay: 55 });
