@@ -17,7 +17,8 @@
             "browser": "apps/desktop/src/main.ts",
             "tsConfig": "apps/desktop/tsconfig.app.json",
             "styles": ["apps/desktop/src/ui/styles.css"],
-            "assets": []
+            "assets": [],
+            "allowedCommonJsDependencies": ["prismjs", "prismjs/components/prism-python", "prismjs/components/prism-javascript"]
           },
           "configurations": {
             "production": {
@@ -35,7 +36,7 @@
             "development": { "buildTarget": "codetype-desktop:build:development" }
           },
           "defaultConfiguration": "development",
-          "options": { "host": "0.0.0.0", "port": 5173, "strictPort": true }
+          "options": { "host": "0.0.0.0", "port": 5173 }
         },
         "test": {
           "builder": "@angular/build:unit-test",
