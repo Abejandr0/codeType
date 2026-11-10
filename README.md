@@ -16,11 +16,11 @@ Monorepo TypeScript para aprender código mediante mecanografía. El renderer de
 5. Inserta o actualiza las lecciones: `npm run seed`.
 6. Ejecuta `npm run dev`.
 
-Vite estará en `http://localhost:5173`, Fastify en `http://localhost:3001`. `npm run dev` abre Vite y la ventana Electron con `contextIsolation` y sandbox activos. PostgreSQL se publica en el puerto local `5433`, Redis en `6380`; ambos conservan sus datos en volúmenes de Docker.
+Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:3001`. `npm run dev` abre el renderer Angular y la ventana Electron con `contextIsolation` y sandbox activos. PostgreSQL se publica en el puerto local `5433`, Redis en `6380`; ambos conservan sus datos en volúmenes de Docker.
 
 ## Comandos
 
-- `npm run dev`: servidor y app Electron de desarrollo; el renderer Angular usa `http://localhost:5173`.
+- `npm run dev`: servidor y app Electron de desarrollo; Angular CLI sirve el renderer en `http://localhost:5173`.
 - `npm run build`: compila renderer Angular y backend.
 - `npm test`: Vitest para el motor de tipeo y las métricas compartidas.
 - `npm run test:e2e`: Playwright (requiere PostgreSQL migrado y sembrado, `.env` y `npx playwright install chromium`).
@@ -39,7 +39,7 @@ Vite estará en `http://localhost:5173`, Fastify en `http://localhost:3001`. `np
 - Matchmaking Socket.IO con cola, presencia y salas compartidas por Redis entre procesos, fragmento compartido, cuenta regresiva, progreso validado, reconexión breve, abandono, chat predefinido, persistencia de resultado y Elo.
 - Solicitudes de amistad por correo, aceptación/rechazo, presencia online real y desafíos directos entre amistades conectadas.
 - Estadísticas de sesiones, gráfica WPM/precisión, mapa de errores por tecla y recomendación determinista basada en errores persistidos.
-- Preferencias persistidas, edición real del perfil, interfaz ES/EN, distribución de teclado, tamaño de fuente, sonidos, meta diaria, notificaciones nativas en Electron, zona horaria, exportación JSON y borrado de cuenta/datos.
+- Preferencias persistidas, edición real del perfil, idioma ES/EN aplicado al shell y ajustes, distribución de teclado, tamaño de fuente, sonidos, meta diaria, notificaciones nativas en Electron, zona horaria, exportación JSON y borrado de cuenta/datos.
 
 ## Suposiciones
 
