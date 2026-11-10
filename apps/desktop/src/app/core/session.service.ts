@@ -22,6 +22,7 @@ export class SessionService {
   private readonly currentToken = signal<string | null>(null);
   private readonly currentUser = signal<SessionUser | null>(null);
   private readonly verified = signal(false);
+  private refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly token = this.currentToken.asReadonly();
   readonly user = this.currentUser.asReadonly();
@@ -51,6 +52,7 @@ export class SessionService {
     try {
       await firstValueFrom(this.http.post(`${API_URL}/auth/logout`, {}));
     } finally {
+      if (this.refreshTimer) clearTimeout(this.refreshTimer);
       this.currentToken.set(null);
       this.currentUser.set(null);
       this.verified.set(true);
@@ -61,5 +63,16 @@ export class SessionService {
     this.currentToken.set(session.accessToken);
     this.currentUser.set(session.user);
     this.verified.set(true);
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(async () => {
+      try {
+        const renewed = await firstValueFrom(this.http.post<SessionResponse>(`${API_URL}/auth/refresh`, {}));
+        this.setSession(renewed);
+      } catch {
+        this.currentToken.set(null);
+        this.currentUser.set(null);
+        this.verified.set(true);
+      }
+    }, 14 * 60 * 1000);
   }
 }
