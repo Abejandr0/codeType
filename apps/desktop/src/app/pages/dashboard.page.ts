@@ -1,16 +1,17 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { API_URL } from '../core/session.service';
+import { API_URL, SessionService } from '../core/session.service';
 
 interface Lesson { id: string; title: string; language: string; path: string; level: number; code: string; status: 'locked' | 'in_progress' | 'completed' }
-interface Dashboard { streakDays: number; xp: number; rating: number; dailyGoalMinutes: number; todayPracticeMs: number; dailyChallenge: Lesson | null; recentActivities: Array<{ wpm: number; createdAt: string; lesson: Lesson }> }
+interface Dashboard { streakDays: number; xp: number; rating: number; dailyGoalMinutes: number; todayPracticeMs: number; dailyChallenge: Lesson | null; lastActivity: { wpm: number; accuracy: number; lesson: Lesson } | null; recentActivities: Array<{ wpm: number; createdAt: string; lesson: Lesson }> }
 
 @Component({
   standalone: true,
   imports: [RouterLink],
   template: `
     <header class="page-heading"><div><div class="eyebrow">TU ESPACIO DE APRENDIZAJE</div><h1>Panel de Inicio</h1><p>Continúa tu camino hacia la maestría del código{{ name() ? ', ' + name() : '.' }}</p></div><div class="header-streak">🔥 <b>Racha</b><strong>{{ data()?.streakDays ?? 0 }} días</strong></div></header>
+    <div class="stats-grid dashboard-stats"><section class="card stat-card"><span class="muted">Última velocidad</span><strong>{{ data()?.lastActivity?.wpm ?? 0 }} <small>WPM</small></strong><span class="stat-foot">Última práctica guardada</span></section><section class="card stat-card"><span class="muted">Precisión reciente</span><strong>{{ data()?.lastActivity?.accuracy ?? 0 }}<small>%</small></strong><span class="stat-foot">En el último intento</span></section><section class="card stat-card"><span class="muted">Experiencia acumulada</span><strong>{{ data()?.xp ?? session.user()?.xp ?? 0 }} <small>XP</small></strong><span class="stat-foot">Nivel {{ Math.floor((data()?.xp ?? session.user()?.xp ?? 0) / 100) + 1 }}</span></section></div>
     <div class="dashboard-grid dashboard-primary">
       <section class="card next-card reference-next"><div class="eyebrow">SIGUIENTE LECCIÓN</div>
         @if (loading()) { <h3>Cargando lecciones…</h3> }
@@ -19,7 +20,7 @@ interface Dashboard { streakDays: number; xp: number; rating: number; dailyGoalM
         @else { <h3>Conecta el servidor para comenzar</h3> }
       </section>
       <section class="card reference-path"><div class="card-title-row"><h3>Ruta de aprendizaje</h3><span class="muted">{{ completion() }}%</span></div><div class="progress-track"><span [style.width.%]="completion()"></span></div>
-        @for (path of paths; track path; let index = $index) { <div class="reference-path-row" [class.current]="path === currentPath()"><span>{{ index + 1 }}</span><div><strong>{{ index + 1 }}. {{ path }}</strong><small>{{ path === currentPath() ? 'En curso' : index === 0 ? 'Disponible' : 'Bloqueado' }}</small></div></div> }
+        @for (path of paths; track path; let index = $index) { <div class="reference-path-row" [class.current]="path === currentPath()" [class.completed]="pathStatus(path, index) === 'Completado'"><span>{{ pathStatus(path, index) === 'Completado' ? '✓' : index + 1 }}</span><div><strong>{{ index + 1 }}. {{ path }}</strong><small>{{ pathStatus(path, index) }}</small></div></div> }
       </section>
     </div>
     <div class="dashboard-grid dashboard-secondary">
@@ -32,6 +33,7 @@ interface Dashboard { streakDays: number; xp: number; rating: number; dailyGoalM
 })
 export class DashboardPageComponent {
   private readonly http = inject(HttpClient);
+  readonly session = inject(SessionService);
   readonly data = signal<Dashboard | null>(null);
   readonly lessons = signal<Lesson[]>([]);
   readonly loading = signal(true);
@@ -43,10 +45,17 @@ export class DashboardPageComponent {
   readonly currentPath = () => this.next()?.path ?? this.paths[0];
   readonly completion = () => this.lessons().length ? Math.round(this.lessons().filter((lesson) => lesson.status === 'completed').length / this.lessons().length * 100) : 0;
   readonly goalProgress = () => Math.min(100, Math.round((this.data()?.todayPracticeMs ?? 0) / Math.max(1, (this.data()?.dailyGoalMinutes ?? 20) * 60000) * 100));
+  pathStatus(path: string, index: number): string {
+    const lessons = this.lessons().filter((lesson) => lesson.path === path);
+    if (lessons.length && lessons.every((lesson) => lesson.status === 'completed')) return 'Completado';
+    if (lessons.some((lesson) => lesson.status === 'in_progress')) return 'En curso';
+    if (index === 0 || this.lessons().filter((lesson) => lesson.path === this.paths[index - 1]).every((lesson) => lesson.status === 'completed')) return 'Disponible';
+    return 'Bloqueado';
+  }
 
   constructor() {
     this.http.get<Dashboard>(`${API_URL}/dashboard`).subscribe({ next: (data) => { this.data.set(data); this.loading.set(false); }, error: () => { this.error.set('Inicia sesión para consultar tu progreso.'); this.loading.set(false); } });
     this.http.get<Lesson[]>(`${API_URL}/lessons`).subscribe({ next: (lessons) => this.lessons.set(lessons), error: () => this.loading.set(false) });
-    this.http.get<{name: string}>(`${API_URL}/me`).subscribe({ next: (user) => this.name.set(user.name), error: () => undefined });
+    effect(() => { if (this.session.token()) this.http.get<{name: string}>(`${API_URL}/me`).subscribe({ next: (user) => this.name.set(user.name), error: () => undefined }); });
   }
 }

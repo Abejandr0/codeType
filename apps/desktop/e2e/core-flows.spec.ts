@@ -21,4 +21,10 @@ test('registers, loads seeded exercises, and saves a completed typing attempt', 
   expect((await response.json()).passed).toBeTruthy();
   await expect(page.getByText('¡Lección completada!')).toBeVisible();
   await expect(page.getByText(/100(?:\.0)?% de precisión/)).toBeVisible();
+  await page.getByRole('link', { name: 'Estadísticas' }).click();
+  await expect(page.getByRole('heading', { name: 'Estadísticas' })).toBeVisible();
+  await expect(page.getByText('Velocidad promedio')).toBeVisible();
+  await expect(page.locator('canvas[aria-label="Gráfica de progreso de velocidad y precisión"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Todo' }).click();
+  await expect(page.getByRole('button', { name: 'Todo' })).toHaveAttribute('aria-pressed', 'true');
 });
