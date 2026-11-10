@@ -16,7 +16,7 @@ Monorepo TypeScript para aprender código mediante mecanografía. El renderer de
 5. Inserta o actualiza las lecciones: `npm run seed`.
 6. Ejecuta `npm run dev`.
 
-Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:3001`. `npm run dev` abre el renderer Angular y la ventana Electron con `contextIsolation` y sandbox activos. PostgreSQL se publica en el puerto local `5433`, Redis en `6380`; ambos conservan sus datos en volúmenes de Docker.
+Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:3001`. `npm run dev` abre el renderer Angular y la ventana Electron con `contextIsolation` y sandbox activos. En Linux, el lanzador selecciona un helper SUID de Chromium instalado en una ruta del sistema y valida que sea propiedad de `root`, tenga modo `4755` y esté en directorios protegidos. Si no hay uno instalado, instala Chromium, Chrome o Brave, o define `CHROME_DEVEL_SANDBOX` con la ruta de un helper confiable; no cambies permisos de archivos dentro de `node_modules`. PostgreSQL se publica en el puerto local `5433`, Redis en `6380`; ambos conservan sus datos en volúmenes de Docker.
 
 ## Comandos
 
