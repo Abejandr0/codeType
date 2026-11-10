@@ -10,21 +10,22 @@ import 'prismjs/components/prism-javascript';
 import { API_URL, SessionService } from '../core/session.service';
 import { VirtualKeyboardComponent } from '../shared/virtual-keyboard.component';
 import { firstValueFrom, interval, map } from 'rxjs';
+import { translate } from '../core/translation';
 
 interface Lesson { id: string; title: string; language: string; path: string; level: number; code: string; tip: string; minAccuracy: number; status: string }
 interface KeyRecord { expected: string; actual: string; elapsedMs: number; correct: boolean }
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 @Component({ standalone: true, imports: [RouterLink, VirtualKeyboardComponent], template: `
-  <div class="lesson-toolbar"><a routerLink="/ejercicios" class="back-link">← Ejercicios</a></div>
-  @if (loading()) { <section class="card">Cargando la lección…</section> }
-  @else if (error()) { <section class="card empty-state"><h2>No se pudo abrir esta lección</h2><p>{{ error() }}</p></section> }
+  <div class="lesson-toolbar"><a routerLink="/ejercicios" class="back-link">← {{ t('Ejercicios') }}</a></div>
+  @if (loading()) { <section class="card">{{ t('Cargando la lección…') }}</section> }
+  @else if (error()) { <section class="card empty-state"><h2>{{ t('No se pudo abrir esta lección') }}</h2><p>{{ t(error()) }}</p></section> }
   @else if (lesson(); as item) {
-    <div class="typing-session-header"><div><div class="eyebrow">PRÁCTICA DE CÓDIGO</div><h1>Práctica de código</h1><p>{{ item.title }} · {{ item.path }} · Nivel {{ item.level }}</p></div><div class="typing-clock"><strong>{{ clock() }}</strong><span>{{ item.language }}</span></div></div>
-    <section class="card typing-metrics"><div><small>WPM:</small><b>{{ metrics().wpm }}</b></div><div><small>Precisión:</small><b>{{ metrics().accuracy }}%</b></div><div><small>Errores:</small><b>{{ errors() }}</b></div><div><small>Tiempo:</small><b>{{ clock() }}</b></div></section>
-    <section class="card typing-card"><div class="typing-code" (click)="focusEditor()" aria-label="Fragmento de código para transcribir"><pre [style.font-size.px]="fontSize()">@for (character of characters(); track $index) { <span [class]="character.className">{{ character.value }}</span> }</pre></div><textarea #editor class="typing-capture" aria-label="Escribe el código tal como aparece. Pegar está desactivado." (keydown)="onKeyDown($event)" (beforeinput)="onBeforeInput($event)" (input)="clearNativeInput($event)" (paste)="$event.preventDefault()" (compositionend)="onCompositionEnd($event)" [disabled]="done()" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea><div class="typing-hint">Escribe el código tal como aparece. Pegar está desactivado.</div></section>
-    <div class="typing-support-grid"><section class="card typing-keyboard-card"><app-virtual-keyboard [layout]="layout()" [nextKey]="nextKey()" /></section><section class="card typing-tip"><div class="eyebrow">CONSEJO DE PROGRAMACIÓN</div><p>{{ item.tip }}</p><span>{{ done() ? 'Fragmento completado' : 'Siguiente tecla: ' + nextKeyLabel() }}</span></section></div>
-    @if (done()) { <section class="card result-card"><div class="result-check">✓</div><div><h3>¡Lección completada!</h3><p>Resultado: {{ finalMetrics().accuracy }}% de precisión · {{ finalMetrics().wpm }} WPM. {{ saveMessage() }}</p></div>@if (saveState() === 'error') { <button class="button secondary" (click)="submit()">Reintentar guardado</button> }<button class="button secondary" (click)="reset()">↻ Repetir</button></section> }
+    <div class="typing-session-header"><div><div class="eyebrow">{{ t('PRÁCTICA DE CÓDIGO') }}</div><h1>{{ t('Práctica de código') }}</h1><p>{{ t(item.title) }} · {{ t(item.path) }} · {{ t('Nivel') }} {{ item.level }}</p></div><div class="typing-clock"><strong>{{ clock() }}</strong><span>{{ item.language }}</span></div></div>
+    <section class="card typing-metrics"><div><small>WPM:</small><b>{{ metrics().wpm }}</b></div><div><small>{{ t('Precisión') }}:</small><b>{{ metrics().accuracy }}%</b></div><div><small>{{ t('Errores') }}:</small><b>{{ errors() }}</b></div><div><small>{{ t('Tiempo') }}:</small><b>{{ clock() }}</b></div></section>
+    <section class="card typing-card"><div class="typing-code" (click)="focusEditor()" [attr.aria-label]="t('Fragmento de código para transcribir')"><pre [style.font-size.px]="fontSize()">@for (character of characters(); track $index) { <span [class]="character.className">{{ character.value }}</span> }</pre></div><textarea #editor class="typing-capture" [attr.aria-label]="t('Escribe el código tal como aparece. Pegar está desactivado.')" (keydown)="onKeyDown($event)" (beforeinput)="onBeforeInput($event)" (input)="clearNativeInput($event)" (paste)="$event.preventDefault()" (compositionend)="onCompositionEnd($event)" [disabled]="done()" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea><div class="typing-hint">{{ t('Escribe el código tal como aparece. Pegar está desactivado.') }}</div></section>
+    <div class="typing-support-grid"><section class="card typing-keyboard-card"><app-virtual-keyboard [layout]="layout()" [nextKey]="nextKey()" /></section><section class="card typing-tip"><div class="eyebrow">{{ t('CONSEJO DE PROGRAMACIÓN') }}</div><p>{{ t(item.tip) }}</p><span>{{ done() ? t('Fragmento completado') : t('Siguiente tecla:') + ' ' + nextKeyLabel() }}</span></section></div>
+    @if (done()) { <section class="card result-card"><div class="result-check">✓</div><div><h3>{{ t('¡Lección completada!') }}</h3><p>{{ t('Resultado:') }} {{ finalMetrics().accuracy }}% {{ t('de precisión') }} · {{ finalMetrics().wpm }} WPM. {{ t(saveMessage()) }}</p></div>@if (saveState() === 'error') { <button class="button secondary" (click)="submit()">{{ t('Reintentar guardado') }}</button> }<button class="button secondary" (click)="reset()">↻ {{ t('Repetir') }}</button></section> }
   }
 ` })
 export class TypingPageComponent {
@@ -55,6 +56,7 @@ export class TypingPageComponent {
   readonly metrics = signal(calculateMetrics(0, 0, 0));
   readonly finalMetrics = signal(calculateMetrics(0, 0, 0));
   readonly clock = signal('00:00');
+  t(text: string): string { return translate(text, this.session.language()); }
   readonly characters = signal<Array<{ value: string; className: string }>>([]);
   readonly nextKey = signal('');
   readonly nextKeyLabel = signal('');
