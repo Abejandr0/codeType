@@ -39,7 +39,7 @@ Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:300
 - Matchmaking Socket.IO con cola, presencia y salas compartidas por Redis entre procesos, fragmento compartido, cuenta regresiva, progreso validado, reconexión breve, abandono, chat predefinido, persistencia de resultado y Elo.
 - Solicitudes de amistad por correo, aceptación/rechazo, presencia online real y desafíos directos entre amistades conectadas.
 - Estadísticas de sesiones, gráfica WPM/precisión, mapa de errores por tecla y recomendación determinista basada en errores persistidos.
-- Preferencias persistidas, edición real del perfil, idioma ES/EN aplicado al shell y ajustes, distribución de teclado, tamaño de fuente, sonidos, meta diaria, notificaciones nativas en Electron, zona horaria, exportación JSON y borrado de cuenta/datos.
+- Preferencias persistidas, edición real del perfil, interfaz ES/EN en el shell y todas las pantallas, distribución de teclado, tamaño de fuente, sonidos, meta diaria, notificaciones nativas en Electron, zona horaria, exportación JSON y borrado de cuenta/datos.
 
 ## Suposiciones
 

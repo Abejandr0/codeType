@@ -1,14 +1,18 @@
-import { Component, input } from '@angular/core';
+import { Component, inject, input } from '@angular/core';
+import { SessionService } from '../core/session.service';
+import { translate } from '../core/translation';
 
 interface VirtualKey { label: string; values: string[] }
 
 @Component({ selector: 'app-virtual-keyboard', standalone: true, template: `
-  <div [class]="'virtual-keyboard layout-' + layout().toLowerCase()" [attr.aria-label]="'Teclado virtual ' + layout()">
+  <div [class]="'virtual-keyboard layout-' + layout().toLowerCase()" [attr.aria-label]="t('Teclado virtual') + ' ' + layout()">
     @for (row of rows(); track $index; let rowIndex = $index) { <div class="key-row" [class]="'key-row key-row-' + (rowIndex + 1)">@for (key of row; track key.label + $index) { <span class="key" [class.key-next]="key.values.includes(nextKey())">{{ key.label }}</span> }</div> }
-    <div class="key-row key-row-bottom"><span class="key key-space" [class.key-next]="nextKey() === ' '">Espacio</span><span class="key key-enter" [class.key-next]="nextKey() === 'Enter'">↵ Enter</span></div>
+    <div class="key-row key-row-bottom"><span class="key key-space" [class.key-next]="nextKey() === ' '">{{ t('Espacio') }}</span><span class="key key-enter" [class.key-next]="nextKey() === 'Enter'">↵ Enter</span></div>
   </div>
 ` })
 export class VirtualKeyboardComponent {
+  private readonly session = inject(SessionService);
+  t(text: string): string { return translate(text, this.session.language()); }
   readonly layout = input('ES');
   readonly nextKey = input('');
   readonly rows = () => {

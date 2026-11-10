@@ -11,5 +11,6 @@ Las funcionalidades se implementan en ramas `feature/<área>`, se validan antes 
 | `feature/angular-dashboard-stats` | Dashboard, estadísticas, gráficas y recomendaciones |
 | `feature/angular-battle-social` | Socket.IO, matchmaking, amistades y rating |
 | `feature/angular-settings` | Ajustes, perfil, limpieza React y documentación |
+| `feature/angular-localization` | Traducciones ES/EN globales y preferencias de idioma aplicadas al iniciar sesión |
 
 Las ramas son acumulativas: cada una parte de la anterior ya integrada en `main`. Para revisar una función, consultar los commits de su rama desde el merge base con `main`.

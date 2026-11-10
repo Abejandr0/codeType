@@ -55,6 +55,17 @@ test('updates profile and preferences, exports data, and deletes its test accoun
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   await expect(page.locator('select[name="keyboardLayout"]')).toHaveValue('LATAM');
   await expect(page.locator('input[name="dailyGoalMinutes"]')).toHaveValue('35');
+  await page.getByRole('link', { name: 'Dashboard' }).click();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await page.locator('nav').getByRole('link', { name: /Exercises/ }).click();
+  await expect(page.getByRole('heading', { name: 'Exercises' })).toBeVisible();
+  await page.locator('.lesson-grid > a').first().click();
+  await expect(page.getByRole('heading', { name: 'Code practice' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Type the code as shown. Pasting is disabled.' })).toBeVisible();
+  await page.getByRole('link', { name: /Exercises/ }).first().click();
+  await page.locator('nav').getByRole('link', { name: /Statistics/ }).click();
+  await expect(page.getByRole('heading', { name: 'Statistics' })).toBeVisible();
+  await page.locator('nav').getByRole('link', { name: /Settings/ }).click();
 
   const downloadWait = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export my data' }).click();
@@ -64,5 +75,5 @@ test('updates profile and preferences, exports data, and deletes its test accoun
   await page.getByRole('button', { name: 'Delete my account' }).click();
   await page.getByLabel('Type DELETE to confirm').fill('DELETE');
   await page.getByRole('button', { name: 'Confirm deletion' }).click();
-  await expect(page.getByRole('heading', { name: 'Crea tu cuenta' })).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible({ timeout: 5_000 });
 });
