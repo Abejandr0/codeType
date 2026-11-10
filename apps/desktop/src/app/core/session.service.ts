@@ -22,11 +22,20 @@ export class SessionService {
   private readonly currentToken = signal<string | null>(null);
   private readonly currentUser = signal<SessionUser | null>(null);
   private readonly verified = signal(false);
+  private readonly currentLanguage = signal<'ES' | 'EN'>('ES');
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly token = this.currentToken.asReadonly();
   readonly user = this.currentUser.asReadonly();
   readonly checked = this.verified.asReadonly();
+  readonly language = this.currentLanguage.asReadonly();
+
+  setLanguage(language: 'ES' | 'EN'): void {
+    this.currentLanguage.set(language);
+    document.documentElement.lang = language.toLowerCase();
+  }
+
+  updateUser(user: SessionUser): void { this.currentUser.set(user); }
 
   constructor(private readonly http: HttpClient) {}
 

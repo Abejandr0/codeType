@@ -41,7 +41,8 @@ export class DashboardPageComponent {
   readonly paths = ['Introducción', 'Condicionales', 'Bucles', 'Funciones'];
   readonly Math = Math;
   readonly name = signal('');
-  readonly next = () => this.lessons().find((lesson) => lesson.status === 'in_progress') ?? this.lessons().find((lesson) => lesson.status !== 'locked') ?? null;
+  readonly defaultLanguage = signal('Python');
+  readonly next = () => this.lessons().find((lesson) => lesson.status === 'in_progress' && lesson.language === this.defaultLanguage()) ?? this.lessons().find((lesson) => lesson.status === 'in_progress') ?? this.lessons().find((lesson) => lesson.status !== 'locked' && lesson.language === this.defaultLanguage()) ?? this.lessons().find((lesson) => lesson.status !== 'locked') ?? null;
   readonly currentPath = () => this.next()?.path ?? this.paths[0];
   readonly completion = () => this.lessons().length ? Math.round(this.lessons().filter((lesson) => lesson.status === 'completed').length / this.lessons().length * 100) : 0;
   readonly goalProgress = () => Math.min(100, Math.round((this.data()?.todayPracticeMs ?? 0) / Math.max(1, (this.data()?.dailyGoalMinutes ?? 20) * 60000) * 100));
@@ -56,6 +57,7 @@ export class DashboardPageComponent {
   constructor() {
     this.http.get<Dashboard>(`${API_URL}/dashboard`).subscribe({ next: (data) => { this.data.set(data); this.loading.set(false); }, error: () => { this.error.set('Inicia sesión para consultar tu progreso.'); this.loading.set(false); } });
     this.http.get<Lesson[]>(`${API_URL}/lessons`).subscribe({ next: (lessons) => this.lessons.set(lessons), error: () => this.loading.set(false) });
+    effect(() => { if (this.session.token()) this.http.get<{ defaultLanguage: string }>(`${API_URL}/settings`).subscribe({ next: (settings) => this.defaultLanguage.set(settings.defaultLanguage), error: () => undefined }); });
     effect(() => { if (this.session.token()) this.http.get<{name: string}>(`${API_URL}/me`).subscribe({ next: (user) => this.name.set(user.name), error: () => undefined }); });
   }
 }
