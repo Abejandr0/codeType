@@ -65,11 +65,58 @@ app.patch('/settings', { preHandler: (app as any).authenticate }, async (request
 app.get('/me/export', { preHandler: (app as any).authenticate }, async (request: any) => { const user = await prisma.user.findUnique({ where: { id: request.user.sub }, include: { settings: true, lessonAttempts: { include: { lesson: true }, orderBy: { createdAt: 'desc' } }, keystrokes: { orderBy: { createdAt: 'desc' } }, battleEntries:{include:{battle:{include:{lesson:true}}}} } }); if (!user) return { error: 'Cuenta no encontrada.' }; const { passwordHash, ...safeUser } = user; return safeUser; });
 app.delete('/me', { preHandler: (app as any).authenticate }, async (request: any, reply) => { await prisma.$transaction([prisma.battle.updateMany({where:{winnerId:request.user.sub},data:{winnerId:null}}),prisma.user.delete({ where: { id: request.user.sub } })]); reply.clearCookie('refreshToken', { path: '/auth' }); return { ok: true }; });
 app.get('/dashboard', { preHandler: (app as any).authenticate }, async (request: any) => {
-  const user=await prisma.user.findUnique({where:{id:request.user.sub},select:{id:true,xp:true,rating:true,timezone:true,settings:{select:{dailyGoalMinutes:true}}}});if(!user)return {error:'Cuenta no encontrada.'};
-  const [attempts,lessons]=await Promise.all([prisma.lessonAttempt.findMany({where:{userId:user.id},orderBy:{createdAt:'desc'},include:{lesson:{select:{id:true,title:true,language:true,path:true}}}}),prisma.lesson.findMany({orderBy:{level:'asc'},select:{id:true,title:true,language:true,path:true,level:true,code:true,tip:true}})]);
-  const dateKey=(date:Date)=>new Intl.DateTimeFormat('en-CA',{timeZone:user.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
-  const days=new Set(attempts.map(attempt=>dateKey(attempt.createdAt)));const today=dateKey(new Date());const shift=(key:string,delta:number)=>{const [y,m,d]=key.split('-').map(Number);const next=new Date(Date.UTC(y,m-1,d+delta));return next.toISOString().slice(0,10);};let cursor=days.has(today)?today:days.has(shift(today,-1))?shift(today,-1):'';let streak=0;while(cursor&&days.has(cursor)){streak++;cursor=shift(cursor,-1);}
-  const dailyIndex=[...today].reduce((sum,char)=>sum+char.charCodeAt(0),0)%Math.max(1,lessons.length);const xp=user.xp;const todayPracticeMs=attempts.filter(attempt=>dateKey(attempt.createdAt)===today).reduce((total,attempt)=>total+attempt.durationMs,0);return {streakDays:streak,timezone:user.timezone,xp,level:Math.floor(xp/100)+1,rank:xp>=1000?'Caballero':xp>=500?'Jedi': 'Padawan',rating:user.rating,dailyGoalMinutes:user.settings?.dailyGoalMinutes??20,todayPracticeMs,recentActivities:attempts.slice(0,3).map(attempt=>({wpm:attempt.wpm,accuracy:attempt.accuracy,createdAt:attempt.createdAt,lesson:attempt.lesson})),lastActivity:attempts[0]?{wpm:attempts[0].wpm,accuracy:attempts[0].accuracy,createdAt:attempts[0].createdAt,lesson:attempts[0].lesson}:null,dailyChallenge:lessons[dailyIndex]??null};
+  const user = await prisma.user.findUnique({
+    where: { id: request.user.sub },
+    select: { id: true, xp: true, rating: true, timezone: true, settings: { select: { dailyGoalMinutes: true } } },
+  });
+  if (!user) return { error: 'Cuenta no encontrada.' };
+
+  const [attempts, lessons] = await Promise.all([
+    prisma.lessonAttempt.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      include: { lesson: { select: { id: true, title: true, language: true, path: true } } },
+    }),
+    prisma.lesson.findMany({ orderBy: { level: 'asc' }, select: { id: true, title: true, language: true, path: true, level: true, code: true } }),
+  ]);
+
+  const dateKey = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: user.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  const practicedDays = new Set(attempts.map((attempt) => dateKey(attempt.createdAt)));
+  const today = dateKey(new Date());
+  const shiftDay = (key: string, delta: number) => {
+    const [year, month, day] = key.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day + delta)).toISOString().slice(0, 10);
+  };
+  let cursor = practicedDays.has(today) ? today : practicedDays.has(shiftDay(today, -1)) ? shiftDay(today, -1) : '';
+  let streakDays = 0;
+  while (cursor && practicedDays.has(cursor)) { streakDays++; cursor = shiftDay(cursor, -1); }
+
+  const paths = [...new Set(lessons.map((lesson) => lesson.path))].sort((left, right) =>
+    Math.min(...lessons.filter((lesson) => lesson.path === left).map((lesson) => lesson.level)) -
+    Math.min(...lessons.filter((lesson) => lesson.path === right).map((lesson) => lesson.level)),
+  );
+  const passedLessonIds = new Set(attempts.filter((attempt) => attempt.passed).map((attempt) => attempt.lessonId));
+  const firstIncomplete = paths.findIndex((path) => lessons.filter((lesson) => lesson.path === path).some((lesson) => !passedLessonIds.has(lesson.id)));
+  const unlockedThrough = firstIncomplete < 0 ? paths.length - 1 : firstIncomplete;
+  const challengeSeed = [...today].reduce((sum, character) => sum + character.charCodeAt(0), 0) % Math.max(1, lessons.length);
+  const challengeOrder = [...lessons.slice(challengeSeed), ...lessons.slice(0, challengeSeed)];
+  const dailyChallenge = challengeOrder.find((lesson) => paths.indexOf(lesson.path) <= unlockedThrough) ?? null;
+  const todayPracticeMs = attempts.filter((attempt) => dateKey(attempt.createdAt) === today).reduce((total, attempt) => total + attempt.durationMs, 0);
+  const xp = user.xp;
+
+  return {
+    streakDays,
+    timezone: user.timezone,
+    xp,
+    level: Math.floor(xp / 100) + 1,
+    rank: xp >= 1000 ? 'Caballero' : xp >= 500 ? 'Jedi' : 'Padawan',
+    rating: user.rating,
+    dailyGoalMinutes: user.settings?.dailyGoalMinutes ?? 20,
+    todayPracticeMs,
+    recentActivities: attempts.slice(0, 3).map((attempt) => ({ wpm: attempt.wpm, accuracy: attempt.accuracy, createdAt: attempt.createdAt, lesson: attempt.lesson })),
+    lastActivity: attempts[0] ? { wpm: attempts[0].wpm, accuracy: attempts[0].accuracy, createdAt: attempts[0].createdAt, lesson: attempts[0].lesson } : null,
+    dailyChallenge,
+  };
 });
 app.get('/lessons', { preHandler: (app as any).authenticate }, async (request: any) => {
   const rows = await prisma.lesson.findMany({ orderBy: { level: 'asc' }, include: { attempts: { where: { userId: request.user.sub, passed: true }, take: 1, select: { passed: true } } } });
@@ -119,8 +166,12 @@ app.get('/recommendations', { preHandler: (app as any).authenticate }, async (re
   const symbols = new Set(['(',')','{','}','[',']',':',';','=','+','-','/','*','"','\'']);
   const symbolCount = errors.filter(item=>symbols.has(item.expected)).reduce((sum,item)=>sum+item._count.expected,0);
   const focused = symbolCount/total >= 0.3 ? { character: errors.find(item=>symbols.has(item.expected))!.expected, title:'Practica los símbolos de código', tip:'Escribe despacio los signos de agrupación y operadores. Comprueba cada pareja de paréntesis y llaves antes de avanzar.' } : { character: errors[0]!.expected, title:`Refuerza el carácter ${errors[0]!.expected===' '?'espacio':errors[0]!.expected}`, tip:`El carácter ${errors[0]!.expected===' '?'espacio':`“${errors[0]!.expected}”`} concentra tus errores. Reduce el ritmo y verifica cada pulsación antes de continuar.` };
-  const lessons = await prisma.lesson.findMany({ orderBy:{level:'asc'} });
-  const lesson = lessons.filter(item=>item.code.includes(focused.character)).sort((a,b)=>b.code.split(focused.character).length-a.code.split(focused.character).length)[0] ?? lessons[0];
+  const lessons = await prisma.lesson.findMany({ orderBy:{level:'asc'}, include:{attempts:{where:{userId:request.user.sub,passed:true},select:{passed:true}}} });
+  const paths=[...new Set(lessons.map(item=>item.path))].sort((left,right)=>Math.min(...lessons.filter(item=>item.path===left).map(item=>item.level))-Math.min(...lessons.filter(item=>item.path===right).map(item=>item.level)));
+  const firstIncomplete=paths.findIndex(path=>lessons.filter(item=>item.path===path).some(item=>!item.attempts.length));
+  const unlockedThrough=firstIncomplete<0?paths.length-1:firstIncomplete;
+  const available=lessons.filter(item=>paths.indexOf(item.path)<=unlockedThrough);
+  const lesson = available.filter(item=>item.code.includes(focused.character)).sort((a,b)=>b.code.split(focused.character).length-a.code.split(focused.character).length)[0] ?? available[0];
   return { recommendation:{...focused,errorCount:errors.find(item=>item.expected===focused.character)?._count.expected??0,lesson:lesson?{id:lesson.id,title:lesson.title,language:lesson.language,path:lesson.path}:null} };
 });
 app.get('/battles', { preHandler: (app as any).authenticate }, async (request:any) => prisma.battle.findMany({where:{participants:{some:{userId:request.user.sub}}},orderBy:{createdAt:'desc'},take:25,include:{lesson:{select:{title:true,language:true,path:true}},participants:{include:{user:{select:{id:true,name:true}}}}}}));
