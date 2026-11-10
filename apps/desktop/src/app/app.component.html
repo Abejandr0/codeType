@@ -1,0 +1,29 @@
+<div class="app-shell">
+  <aside class="sidebar" aria-label="Navegación principal">
+    <a class="brand" routerLink="/" aria-label="CodeType, inicio">
+      <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
+      <span>Code<span class="brand-accent">Type</span></span>
+    </a>
+    <div class="side-label">MENÚ PRINCIPAL</div>
+    <nav>
+      <a class="nav-item" routerLink="/" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive="active"><span class="nav-icon">⌂</span><span>Dashboard</span></a>
+      <a class="nav-item" routerLink="/ejercicios" routerLinkActive="active"><span class="nav-icon">⌨</span><span>Ejercicios</span></a>
+      <a class="nav-item battle-nav" routerLink="/batalla" routerLinkActive="active"><span class="nav-icon">⚔</span><span>Batalla de Código 1v1</span></a>
+      <a class="nav-item" routerLink="/estadisticas" routerLinkActive="active"><span class="nav-icon">▥</span><span>Estadísticas</span></a>
+      <a class="nav-item" routerLink="/ajustes" routerLinkActive="active"><span class="nav-icon">⚙</span><span>Ajustes</span></a>
+    </nav>
+    <div class="sidebar-spacer"></div>
+    <div class="profile">
+      <div class="avatar">{{ session.user()?.name?.slice(0, 1)?.toUpperCase() ?? 'A' }}</div>
+      <div class="profile-copy">
+        <strong>{{ session.user()?.name ?? 'Aprendiz' }}</strong>
+        <span>{{ session.user() ? 'Nivel ' + (Math.floor(session.user()!.xp / 100) + 1) + ' · ' + rank : 'Inicia sesión para comenzar' }}</span>
+      </div>
+      @if (session.user()) { <button class="icon-button" aria-label="Cerrar sesión" title="Cerrar sesión" (click)="session.logout()">↪</button> }
+    </div>
+  </aside>
+  <main class="main-content" id="main-content">
+    <router-outlet />
+  </main>
+  @if (session.checked() && !session.token()) { <app-auth-panel /> }
+</div>

@@ -2,7 +2,10 @@
   "name": "codetype",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "concurrently -k -n server,desktop -c blue,magenta \"npm:dev:server\" \"npm:dev:desktop\"",
     "dev:server": "npm --workspace apps/server run dev",
@@ -16,5 +19,10 @@
     "package:mac": "npm --workspace apps/desktop run package:mac",
     "package:windows": "npm --workspace apps/desktop run package:windows"
   },
-  "devDependencies": { "concurrently": "^9.1.2", "typescript": "^5.7.3" }
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.12"
+  }
 }

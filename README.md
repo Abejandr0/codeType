@@ -1,10 +1,10 @@
 # CodeType – Aprende a Programar
 
-Monorepo TypeScript para aprender código mediante mecanografía. La interfaz sigue como referencia el diseño entregado en `CodeType – Aprende a Programar.html`, con tokens compartidos y componentes reutilizables.
+Monorepo TypeScript para aprender código mediante mecanografía. El renderer de escritorio usa Angular 21 y sigue como referencia el diseño entregado en `CodeType – Aprende a Programar.html`, con tokens compartidos y componentes reutilizables.
 
 ## Requisitos
 
-- Node.js 20.6 o superior y npm
+- Node.js 20.19 o superior y npm (Angular 21 también soporta Node 22.12+ y 24+)
 - Docker Compose
 
 ## Arranque local
@@ -20,13 +20,14 @@ Vite estará en `http://localhost:5173`, Fastify en `http://localhost:3001`. `np
 
 ## Comandos
 
-- `npm run dev`: servidor y app Electron de desarrollo.
-- `npm run build`: compila frontend y backend.
+- `npm run dev`: servidor y app Electron de desarrollo; el renderer Angular usa `http://localhost:5173`.
+- `npm run build`: compila renderer Angular y backend.
 - `npm test`: Vitest para el motor de tipeo y las métricas compartidas.
 - `npm run test:e2e`: Playwright (requiere PostgreSQL migrado y sembrado, `.env` y `npx playwright install chromium`).
 - `npm run package:linux`, `npm run package:mac`, `npm run package:windows`: genera instaladores Electron en `apps/desktop/release` (macOS y Windows se empaquetan en su plataforma correspondiente).
 - `npm run db:migrate`: migraciones Prisma.
 - `npm run seed`: seed idempotente de ejercicios Python/JavaScript.
+- `docs/branching.md`: ramas funcionales y reglas de trazabilidad; `docs/architecture/angular-adr.md`: decisión de framework.
 
 ## Qué funciona
 
