@@ -1,3 +1,6 @@
+@if (!session.checked()) {
+  <main class="startup-screen" role="status"><div class="brand-mark" aria-hidden="true">&lt;/&gt;</div><p>Preparando CodeType…</p></main>
+} @else if (session.user()) {
 <div class="app-shell">
   <aside class="sidebar" [attr.aria-label]="session.language() === 'ES' ? 'Navegación principal' : 'Main navigation'">
     <a class="brand" routerLink="/" [attr.aria-label]="session.language() === 'ES' ? 'CodeType, inicio' : 'CodeType, home'">
@@ -6,11 +9,11 @@
     </a>
     <div class="side-label">{{ session.language() === 'ES' ? 'MENÚ PRINCIPAL' : 'MAIN MENU' }}</div>
     <nav>
-      <a class="nav-item" routerLink="/" [routerLinkActiveOptions]="{ exact: true }" routerLinkActive="active"><span class="nav-icon">⌂</span><span>Dashboard</span></a>
-      <a class="nav-item" routerLink="/ejercicios" routerLinkActive="active"><span class="nav-icon">⌨</span><span>{{ session.language() === 'ES' ? 'Ejercicios' : 'Exercises' }}</span></a>
-      <a class="nav-item battle-nav" routerLink="/batalla" routerLinkActive="active"><span class="nav-icon">⚔</span><span>{{ session.language() === 'ES' ? 'Batalla de Código 1v1' : '1v1 Code Battle' }}</span></a>
-      <a class="nav-item" routerLink="/estadisticas" routerLinkActive="active"><span class="nav-icon">▥</span><span>{{ session.language() === 'ES' ? 'Estadísticas' : 'Statistics' }}</span></a>
-      <a class="nav-item" routerLink="/ajustes" routerLinkActive="active"><span class="nav-icon">⚙</span><span>{{ session.language() === 'ES' ? 'Ajustes' : 'Settings' }}</span></a>
+      <a class="nav-item" routerLink="/dashboard" routerLinkActive="active"><span class="nav-icon" aria-hidden="true">01</span><span>Dashboard</span></a>
+      <a class="nav-item" routerLink="/ejercicios" routerLinkActive="active"><span class="nav-icon" aria-hidden="true">02</span><span>{{ session.language() === 'ES' ? 'Ejercicios' : 'Exercises' }}</span></a>
+      <a class="nav-item battle-nav" routerLink="/batalla" routerLinkActive="active"><span class="nav-icon" aria-hidden="true">03</span><span>{{ session.language() === 'ES' ? 'Batalla de Código 1v1' : '1v1 Code Battle' }}</span></a>
+      <a class="nav-item" routerLink="/estadisticas" routerLinkActive="active"><span class="nav-icon" aria-hidden="true">04</span><span>{{ session.language() === 'ES' ? 'Estadísticas' : 'Statistics' }}</span></a>
+      <a class="nav-item" routerLink="/ajustes" routerLinkActive="active"><span class="nav-icon" aria-hidden="true">05</span><span>{{ session.language() === 'ES' ? 'Ajustes' : 'Settings' }}</span></a>
     </nav>
     <div class="sidebar-spacer"></div>
     <div class="profile">
@@ -19,11 +22,13 @@
         <strong>{{ session.user()?.name ?? 'Aprendiz' }}</strong>
         <span>{{ session.user() ? (session.language() === 'ES' ? 'Nivel ' : 'Level ') + (Math.floor(session.user()!.xp / 100) + 1) + ' · ' + rank : (session.language() === 'ES' ? 'Inicia sesión para comenzar' : 'Sign in to get started') }}</span>
       </div>
-      @if (session.user()) { <button class="icon-button" [attr.aria-label]="session.language() === 'ES' ? 'Cerrar sesión' : 'Sign out'" [attr.title]="session.language() === 'ES' ? 'Cerrar sesión' : 'Sign out'" (click)="session.logout()">↪</button> }
+      <button class="icon-button" [attr.aria-label]="session.language() === 'ES' ? 'Cerrar sesión' : 'Sign out'" [attr.title]="session.language() === 'ES' ? 'Cerrar sesión' : 'Sign out'" (click)="logout()">Salir</button>
     </div>
   </aside>
   <main class="main-content" id="main-content">
     <router-outlet />
   </main>
-  @if (session.checked() && !session.token()) { <app-auth-panel /> }
 </div>
+} @else {
+  <main class="public-content"><router-outlet /></main>
+}

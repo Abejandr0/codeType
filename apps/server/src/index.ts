@@ -64,6 +64,15 @@ app.get('/settings', { preHandler: (app as any).authenticate }, async (request: 
 app.patch('/settings', { preHandler: (app as any).authenticate }, async (request: any, reply) => { const parsed = settingsSchema.safeParse(request.body); if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message }); const { timezone, ...settings } = parsed.data; let savedTimezone = timezone; if (timezone) { try { new Intl.DateTimeFormat('en-US',{timeZone:timezone}); } catch { return reply.code(400).send({error:'La zona horaria no es válida.'}); } const user = await prisma.user.update({ where: { id: request.user.sub }, data: { timezone }, select: { timezone: true } }); savedTimezone = user.timezone; } else { savedTimezone = (await prisma.user.findUnique({ where: { id: request.user.sub }, select: { timezone: true } }))?.timezone; } const saved = await prisma.userSettings.upsert({ where: { userId: request.user.sub }, create: { userId: request.user.sub, ...settings }, update: settings }); return { ...saved, timezone: savedTimezone }; });
 app.get('/me/export', { preHandler: (app as any).authenticate }, async (request: any) => { const user = await prisma.user.findUnique({ where: { id: request.user.sub }, include: { settings: true, lessonAttempts: { include: { lesson: true }, orderBy: { createdAt: 'desc' } }, keystrokes: { orderBy: { createdAt: 'desc' } }, battleEntries:{include:{battle:{include:{lesson:true}}}} } }); if (!user) return { error: 'Cuenta no encontrada.' }; const { passwordHash, ...safeUser } = user; return safeUser; });
 app.delete('/me', { preHandler: (app as any).authenticate }, async (request: any, reply) => { await prisma.$transaction([prisma.battle.updateMany({where:{winnerId:request.user.sub},data:{winnerId:null}}),prisma.user.delete({ where: { id: request.user.sub } })]); reply.clearCookie('refreshToken', { path: '/auth' }); return { ok: true }; });
+app.get('/catalog/summary', async () => {
+  const lessons = await prisma.lesson.findMany({ orderBy: { level: 'asc' }, select: { id: true, language: true, path: true, title: true, code: true } });
+  return {
+    lessonCount: lessons.length,
+    languages: [...new Set(lessons.map((lesson) => lesson.language))].sort(),
+    routes: [...new Set(lessons.map((lesson) => lesson.path))],
+    featuredLesson: lessons[0] ? { title: lessons[0].title, language: lessons[0].language, code: lessons[0].code } : null,
+  };
+});
 app.get('/dashboard', { preHandler: (app as any).authenticate }, async (request: any) => {
   const user = await prisma.user.findUnique({
     where: { id: request.user.sub },
