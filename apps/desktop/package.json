@@ -9,8 +9,8 @@
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "concurrently -k -n angular,electron -c blue,magenta \"ng serve codetype-desktop\" \"wait-on http://localhost:5173 && node electron/run-dev.cjs\"",
-    "dev:web": "ng serve codetype-desktop",
+    "dev": "concurrently -k -n angular,electron -c blue,magenta \"ng serve codetype-desktop --host 127.0.0.1\" \"wait-on http://localhost:5173 && node electron/run-dev.cjs\"",
+    "dev:web": "ng serve codetype-desktop --host 127.0.0.1",
     "build": "ng build codetype-desktop",
     "package:linux": "npm run build && electron-builder --linux AppImage deb",
     "package:mac": "npm run build && electron-builder --mac dmg",

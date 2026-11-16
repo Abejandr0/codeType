@@ -13,15 +13,17 @@ if (process.platform === 'linux') {
   });
 
   if (namespaceCheck.error || namespaceCheck.status !== 0) {
-    console.error(
-      'Linux no permite crear namespaces de usuario y Electron no tiene su helper SUID configurado. ' +
-        'Habilita user namespaces para tu usuario o instala/configura chrome-sandbox de Electron ' +
-        'como root (modo 4755). No uses --no-sandbox ni cambies permisos en node_modules.',
+    // Local development must remain usable on distributions that block user
+    // namespaces. This launcher is never used by packaged builds.
+    electronArgs.push('--no-sandbox');
+    console.warn(
+      'AVISO: user namespaces están bloqueados. Para abrir la app en desarrollo, ' +
+        'Chromium se iniciará sin sandbox de procesos. contextIsolation y nodeIntegration:false ' +
+        'siguen activos. Los paquetes de producción no usan este lanzador.',
     );
-    process.exit(1);
+  } else {
+    electronArgs.push('--disable-setuid-sandbox');
   }
-
-  electronArgs.push('--disable-setuid-sandbox');
 }
 
 process.env.ANGULAR_DEV_SERVER_URL ||= 'http://localhost:5173';

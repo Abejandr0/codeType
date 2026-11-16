@@ -14,5 +14,6 @@ Las funcionalidades se implementan en ramas `feature/<área>`, se validan antes 
 | `feature/angular-localization` | Traducciones ES/EN globales y preferencias de idioma aplicadas al iniciar sesión |
 | `fix/electron-linux-launch` | Arranque de Electron en Linux con selección segura del helper SUID de Chromium |
 | `fix/electron-userns-sandbox` | Arranque Linux usando el sandbox de namespaces cuando está disponible |
+| `fix/electron-dev-sandbox-fallback` | Alternativa local de desarrollo en Linux cuando el sistema bloquea namespaces |
 
 Las ramas son acumulativas: cada una parte de la anterior ya integrada en `main`. Para revisar una función, consultar los commits de su rama desde el merge base con `main`.
