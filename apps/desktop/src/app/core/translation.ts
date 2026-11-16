@@ -253,6 +253,21 @@ const english: Record<string, string> = {
 };
 
 const extraEnglish: Record<string, string> = {
+  'El método': 'The method', 'Rutas': 'Paths', 'UN ESTUDIO PARA APRENDER CÓDIGO': 'A STUDIO FOR LEARNING CODE',
+  'Piensa en código.': 'Think in code.', 'Escribe con confianza.': 'Type with confidence.',
+  'Entrena con fragmentos reales de Python y JavaScript. Cada tecla cuenta, cada ejercicio te explica lo que estás construyendo.': 'Train with real Python and JavaScript snippets. Every keystroke matters, and each lesson explains what you are building.',
+  'Comenzar a practicar': 'Start practicing', 'Conoce el método': 'See the method', 'Preparando el catálogo…': 'Preparing the catalog…',
+  'lecciones listas': 'lessons ready', 'rutas guiadas': 'guided paths',
+  'SESIÓN DE PRÁCTICA': 'PRACTICE SESSION', 'VISTA PREVIA': 'PREVIEW', 'LECCIÓN DESTACADA': 'FEATURED LESSON',
+  'Fragmento para escribir': 'Snippet to type', 'PRIMEROS PASOS': 'FIRST STEPS', 'Tu primera línea': 'Your first line',
+  'Precisión de pulsación': 'Keystroke accuracy', 'Practica a tu propio ritmo': 'Practice at your own pace',
+  'APRENDER HACIENDO': 'LEARN BY DOING', 'De la primera tecla a escribir sin mirar.': 'From your first keystroke to typing without looking.',
+  'Una rutina sencilla para pasar de copiar código a entenderlo.': 'A simple routine to move from copying code to understanding it.',
+  'Escribe': 'Type', 'Transcribe código real y acostumbra tus manos a sus símbolos, espacios y ritmo.': 'Type real code and get your hands used to its symbols, spaces, and rhythm.',
+  'Comprende': 'Understand', 'Descubre qué hace cada fragmento y cómo se conectan las ideas.': 'See what each snippet does and how the ideas connect.',
+  'Avanza': 'Improve', 'Mira tu precisión, velocidad y evolución para elegir qué practicar después.': 'Track your accuracy, speed, and progress to choose what to practice next.',
+  'TU PRÓXIMA LÍNEA EMPIEZA AQUÍ': 'YOUR NEXT LINE STARTS HERE', 'Una tecla a la vez.': 'One keystroke at a time.',
+  'Crear mi cuenta': 'Create my account', 'Práctica deliberada para programadores.': 'Deliberate practice for programmers.',
   'Progreso': 'Progress', 'Pausar': 'Pause', 'Reanudar': 'Resume', 'Práctica pausada': 'Practice paused',
   'Tiempo activo': 'Active time', '¿QUÉ HACE ESTE CÓDIGO?': 'WHAT DOES THIS CODE DO?',
   'Sesión del catálogo común': 'Session from the shared lesson catalog',

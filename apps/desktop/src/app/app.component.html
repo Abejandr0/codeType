@@ -1,10 +1,10 @@
 @if (!session.checked()) {
-  <main class="startup-screen" role="status"><div class="brand-mark" aria-hidden="true">&lt;/&gt;</div><p>Preparando CodeType…</p></main>
+  <main class="startup-screen" role="status"><div class="brand-mark" aria-hidden="true">ct</div><p>Preparando CodeType…</p></main>
 } @else if (session.user()) {
 <div class="app-shell">
   <aside class="sidebar" [attr.aria-label]="session.language() === 'ES' ? 'Navegación principal' : 'Main navigation'">
     <a class="brand" routerLink="/" [attr.aria-label]="session.language() === 'ES' ? 'CodeType, inicio' : 'CodeType, home'">
-      <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
+      <span class="brand-mark" aria-hidden="true">ct</span>
       <span>Code<span class="brand-accent">Type</span></span>
     </a>
     <div class="side-label">{{ session.language() === 'ES' ? 'MENÚ PRINCIPAL' : 'MAIN MENU' }}</div>

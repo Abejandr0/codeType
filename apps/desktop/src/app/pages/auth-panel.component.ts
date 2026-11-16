@@ -13,7 +13,7 @@ import { translate } from '../core/translation';
   template: `
     <div class="auth-page">
       <a class="brand auth-brand" routerLink="/" aria-label="Volver al inicio">
-        <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
+        <span class="brand-mark" aria-hidden="true">ct</span>
         <span>Code<span class="brand-accent">Type</span></span>
       </a>
       <section class="card auth-card" aria-labelledby="auth-heading">
