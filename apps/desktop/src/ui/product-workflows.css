@@ -86,6 +86,50 @@
   animation: typing-caret-blink 0.9s steps(2, start) infinite;
 }
 
+.battle-live .battle-code { position: relative; cursor: text; transition: border-color .18s ease, box-shadow .18s ease; }
+.battle-live .battle-code:focus-within { border-color: #8491ff; box-shadow: 0 0 0 2px #7b8cff44; }
+.battle-live .battle-code pre { position: relative; z-index: 0; pointer-events: none; }
+.battle-live .battle-code .typing-capture {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  color: transparent;
+  background: transparent;
+  caret-color: transparent;
+  resize: none;
+  cursor: text;
+}
+.battle-live .battle-cursor {
+  position: relative;
+  z-index: 0;
+  border-radius: 3px;
+  outline: 2px solid #aeb9ff;
+  outline-offset: 1px;
+  background: #4f61e8 !important;
+  color: #fff !important;
+}
+.battle-live .battle-cursor::before {
+  position: absolute;
+  top: .08em;
+  bottom: .08em;
+  left: -4px;
+  width: 2px;
+  border-radius: 2px;
+  background: #f3f5ff;
+  box-shadow: 0 0 8px #9eacff;
+  content: "";
+  animation: typing-caret-blink .9s steps(2, start) infinite;
+}
+.battle-input-hint { display: flex; justify-content: space-between; gap: 12px; margin: 8px 2px 0; color: var(--muted); font-size: 12px; }
+.battle-input-hint span { color: #c4cbff; font: 11px var(--mono); }
+.friend-unavailable { color: var(--muted); font-size: 11px; }
+
 .typing-page .typing-hint {
   display: flex;
   flex: 0 0 auto;
@@ -275,6 +319,8 @@
 @media (prefers-reduced-motion: reduce) {
   .typing-page .char-cursor,
   .typing-page .char-cursor::before,
+  .battle-live .battle-cursor::before,
+  .battle-live .battle-code,
   .toggle-switch,
   .toggle-switch::after { animation: none; transition: none; }
 }
