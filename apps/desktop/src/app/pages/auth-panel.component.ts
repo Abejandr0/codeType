@@ -76,7 +76,7 @@ export class AuthPanelComponent {
 
   constructor() {
     effect(() => {
-      if (this.session.user()) void this.router.navigateByUrl('/dashboard');
+      if (this.session.user()) void this.router.navigateByUrl(this.postAuthUrl());
     });
   }
 
@@ -99,7 +99,7 @@ export class AuthPanelComponent {
     this.message.set('');
     try {
       await this.session.authenticate(mode, parsed.data);
-      await this.router.navigateByUrl('/dashboard');
+      await this.router.navigateByUrl(this.postAuthUrl());
     } catch (error) {
       const response = error as HttpErrorResponse;
       this.message.set(response.error?.error ?? 'No se pudo completar el inicio de sesión.');
@@ -113,5 +113,12 @@ export class AuthPanelComponent {
     if (field === 'email') return 'Escribe un correo electrónico válido.';
     if (field === 'password') return this.mode() === 'register' ? 'La contraseña debe tener entre 10 y 128 caracteres.' : 'La contraseña es obligatoria.';
     return 'Revisa los datos del formulario.';
+  }
+
+  private postAuthUrl(): string {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    return returnUrl?.startsWith('/') && !returnUrl.startsWith('//') && returnUrl !== '/acceso'
+      ? returnUrl
+      : '/dashboard';
   }
 }

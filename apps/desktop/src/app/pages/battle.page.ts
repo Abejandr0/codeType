@@ -2,7 +2,8 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom, interval } from 'rxjs';
+import { RouterLink } from '@angular/router';
+import { firstValueFrom, forkJoin, interval, timeout } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 import { API_URL, SessionService } from '../core/session.service';
 import { translate } from '../core/translation';
@@ -11,9 +12,10 @@ interface Friend { id: string; name: string; rating: number; online: boolean; in
 interface Match { battleId: string; startsAt: number; lesson: { id: string; title: string; path: string; language: string; code: string } }
 interface Player { userId: string; name: string; rating: number; ratingAfter?: number; cursor: number; progress: number; wpm: number; accuracy: number; errors: number; abandoned?: boolean }
 
-@Component({ standalone: true, imports: [FormsModule], template: `
+@Component({ standalone: true, imports: [FormsModule, RouterLink], template: `
   <header class="page-heading"><div><div class="eyebrow">{{ t('COMPITE Y APRENDE') }}</div><h1>{{ t('Batalla de Código 1v1') }}</h1><p>{{ t('Mide tu velocidad en tiempo real contra otra persona.') }}</p></div></header>
-  @if (!match()) { <section class="card battle-panel"><div class="battle-swords" aria-hidden="true">VS</div><h2>{{ t('¿Listo para el duelo?') }}</h2><p>{{ t('Te emparejaremos en una cola real. Ambos competirán con el mismo fragmento de código.') }}</p><button class="button primary" (click)="toggleQueue()" [disabled]="!session.token() || !socketConnected()">{{ queued() ? t('Cancelar búsqueda') : socketConnected() ? t('Buscar oponente') : t('Conectando…') }} ›</button>@if (status()) { <p class="inline-note" role="status">{{ t(status()) }}</p> }<div class="battle-features"><span>{{ t('Cola en vivo') }}</span><span>{{ t('Progreso validado') }}</span><span>{{ t('Rating Elo') }}</span></div></section> }
+  @if (!session.token()) { <section class="card battle-panel"><div class="battle-swords" aria-hidden="true">VS</div><h2>{{ t('Inicia sesión para entrar a la batalla') }}</h2><p>{{ t('La cola, las invitaciones y el historial pertenecen a tu cuenta.') }}</p><a class="button primary" routerLink="/acceso" [queryParams]="{ mode: 'login', returnUrl: '/batalla' }">{{ t('Iniciar sesión') }} ›</a><div class="battle-features"><span>{{ t('Cola en vivo') }}</span><span>{{ t('Progreso validado') }}</span><span>{{ t('Rating Elo') }}</span></div></section> }
+  @else if (!match()) { <section class="card battle-panel"><div class="battle-swords" aria-hidden="true">VS</div><h2>{{ t('¿Listo para el duelo?') }}</h2><p>{{ t('Te emparejaremos en una cola real. Ambos competirán con el mismo fragmento de código.') }}</p><button class="button primary" (click)="toggleQueue()" [disabled]="connecting() && !socketConnected()">{{ queued() ? t('Cancelar búsqueda') : socketConnected() ? t('Buscar oponente') : connecting() ? t('Conectando…') : t('Reconectar') }} ›</button>@if (status()) { <p class="inline-note" role="status">{{ t(status()) }}</p> }<div class="battle-features"><span>{{ t('Cola en vivo') }}</span><span>{{ t('Progreso validado') }}</span><span>{{ t('Rating Elo') }}</span></div></section> }
   @if (match(); as battle) { <section class="card battle-live"><div class="card-top"><div><div class="eyebrow">{{ t('BATALLA EN VIVO') }}</div><h2>{{ result() ? t(resultHeading()) : countdown() ? t('La batalla comienza en') + ' ' + countdown() : t('Escribe el fragmento para competir') }}</h2></div>@if (!result()) { <button class="button secondary" (click)="leaveBattle()" [disabled]="leaving()">{{ leaving() ? t('Saliendo…') : t('Salir') }}</button> } @else { <button class="button secondary" (click)="closeResult()">{{ t('Cerrar') }}</button> }</div>
     <p class="battle-instruction">{{ t(battle.lesson.title) }} · {{ t(battle.lesson.path) }} · {{ battle.lesson.language }} · {{ t('Sesión del catálogo común') }}</p>
     <div class="battle-scoreboard">@for (player of players(); track player.userId) { <div class="battle-player"><div class="battle-player-top"><strong>{{ player.name }}{{ player.userId === session.user()?.id ? ' (' + t('tú') + ')' : '' }}</strong><span>{{ t('Rating') }} {{ player.ratingAfter ?? player.rating }}</span></div><div class="battle-player-stats"><span>{{ player.wpm }} WPM</span><span>{{ player.accuracy }}% {{ t('precisión') }}</span><span>{{ player.errors }} {{ t('errores') }}</span></div><div class="progress-track" role="progressbar" [attr.aria-valuenow]="player.progress" aria-valuemin="0" aria-valuemax="100"><span [style.width.%]="player.progress"></span></div></div> }</div>
@@ -22,17 +24,17 @@ interface Player { userId: string; name: string; rating: number; ratingAfter?: n
     @if (messages().length) { <div class="battle-chat" aria-live="polite">@for (message of messages(); track $index) { <span><b>{{ message.name }}:</b> {{ t(message.message) }}</span> }</div> }
     <div class="quick-chat">@for (message of quickMessages; track message) { <button type="button" (click)="sendQuickMessage(message)" [disabled]="!socket?.connected">{{ t(message) }}</button> }</div>@if (status()) { <p class="inline-note" role="status">{{ t(status()) }}</p> }
   </section> }
-  <div class="friends-layout">
+  @if (session.token()) { <div class="friends-layout">
     <section class="card"><div class="card-title-row"><h3>{{ t('Amistades conectadas') }}</h3><span class="muted">{{ onlineFriends().length }} {{ t('en línea') }}</span></div>
-      @if (friendsLoading()) { <p class="muted">{{ t('Cargando amistades…') }}</p> } @else if (friendsError()) { <p class="inline-note">{{ t(friendsError()) }}</p> } @else if (friends().length) { <div class="friend-list">@for (friend of friends(); track friend.id) { <div class="friend-row"><span class="friend-presence" [class.online]="friend.online"></span><div><strong>{{ friend.name }}</strong><small>{{ t('Rating') }} {{ friend.rating }}</small></div>@if (friendAvailable(friend) && !match() && !queued()) { <button class="button secondary" [disabled]="!socket?.connected" (click)="invite(friend)">{{ t('Invitar') }}</button> } @else if (friend.inBattle) { <small class="friend-unavailable">{{ t('En un duelo') }}</small> } @else if (friend.queued) { <small class="friend-unavailable">{{ t('Buscando rival') }}</small> } @else if (!friend.online) { <small class="friend-unavailable">{{ t('Desconectada') }}</small> }</div> }</div> } @else { <p class="muted">{{ t('Aún no tienes amistades en CodeType.') }}</p> }
+      @if (friendsLoading()) { <p class="muted">{{ t('Cargando amistades…') }}</p> } @else if (friendsError()) { <p class="inline-note" role="alert">{{ t(friendsError()) }} <button type="button" class="button secondary" (click)="loadSocial()">{{ t('Reintentar') }}</button></p> } @else if (friends().length) { <div class="friend-list">@for (friend of friends(); track friend.id) { <div class="friend-row"><span class="friend-presence" [class.online]="friend.online"></span><div><strong>{{ friend.name }}</strong><small>{{ t('Rating') }} {{ friend.rating }}</small></div>@if (friendAvailable(friend) && !match() && !queued()) { <button class="button secondary" [disabled]="!socket?.connected" (click)="invite(friend)">{{ t('Invitar') }}</button> } @else if (friend.inBattle) { <small class="friend-unavailable">{{ t('En un duelo') }}</small> } @else if (friend.queued) { <small class="friend-unavailable">{{ t('Buscando rival') }}</small> } @else if (!friend.online) { <small class="friend-unavailable">{{ t('Desconectada') }}</small> }</div> }</div> } @else { <p class="muted">{{ t('Aún no tienes amistades en CodeType.') }}</p> }
     </section>
     <section class="card"><h3>{{ t('Buscar amistades') }}</h3><form class="friend-request-form" (ngSubmit)="sendRequest()"><label>{{ t('Correo de tu amistad') }}<input name="friendEmail" type="email" [(ngModel)]="email" required placeholder="friend@example.com" /></label><button class="button primary" type="submit" [disabled]="requestSending()">{{ requestSending() ? t('Enviando…') : t('Enviar solicitud') }}</button></form>
       @if (requests()?.incoming?.length) { <div class="friend-requests"><strong>Solicitudes recibidas</strong>@for (request of requests().incoming; track request.id) { <div><span>{{ request.sender.name }}</span><button type="button" (click)="respond(request.id, 'accept')">Aceptar</button><button type="button" (click)="respond(request.id, 'decline')">Rechazar</button></div> }</div> }
       @if (requests()?.outgoing?.length) { <div class="friend-requests"><strong>Solicitudes enviadas</strong>@for (request of requests().outgoing; track request.id) { <div><span>{{ request.receiver.name }}</span><small>Pendiente</small></div> }</div> }
       @if (socialNotice()) { <p class="inline-note" role="status">{{ t(socialNotice()) }}</p> }
     </section>
-  </div>
-  @if (incomingInvite(); as invitation) { <section class="card incoming-invite"><div><strong>{{ invitation.senderName }} {{ t('te invita a una batalla.') }}</strong><p>{{ t('La invitación vence en 30 segundos.') }}</p></div><button class="button primary" (click)="acceptInvite()">{{ t('Aceptar invitación') }}</button><button class="button secondary" (click)="declineInvite()">{{ t('Rechazar') }}</button></section> }
+  </div> }
+  @if (session.token() && incomingInvite(); as invitation) { <section class="card incoming-invite"><div><strong>{{ invitation.senderName }} {{ t('te invita a una batalla.') }}</strong><p>{{ t('La invitación vence en 30 segundos.') }}</p></div><button class="button primary" (click)="acceptInvite()">{{ t('Aceptar invitación') }}</button><button class="button secondary" (click)="declineInvite()">{{ t('Rechazar') }}</button></section> }
 ` })
 export class BattlePageComponent {
   private readonly http = inject(HttpClient);
@@ -71,6 +73,7 @@ export class BattlePageComponent {
   private compositionCommitted: { text: string; until: number } | null = null;
   private lastSubmittedInput: { text: string; at: number } | null = null;
   private inviteTimer?: ReturnType<typeof setTimeout>;
+  private socialLoadInFlight = false;
   private cachedEmail = '';
   get email(): string { return this.cachedEmail; }
   set email(value: string) { this.cachedEmail = value; }
@@ -104,7 +107,7 @@ export class BattlePageComponent {
       const start = this.match()?.startsAt;
       this.countdown.set(start ? Math.max(0, Math.ceil((start - Date.now()) / 1000)) : 0);
     });
-    interval(5000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => { if (this.session.token()) this.loadSocial(); });
+    interval(5000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadSocial());
     effect(() => { if (this.session.token()) this.loadSocial(); });
     effect(() => { if (this.match() && !this.countdown() && !this.result()) queueMicrotask(() => this.focusInput()); });
   }
@@ -124,7 +127,7 @@ export class BattlePageComponent {
 
   toggleQueue(): void {
     if (!this.session.token()) { this.status.set('Inicia sesión para entrar a la cola.'); return; }
-    if (!this.socket?.connected) { this.connecting.set(true); this.status.set('Conectando con matchmaking…'); return; }
+    if (!this.socket?.connected) { this.connecting.set(true); this.status.set('Conectando con matchmaking…'); this.socket?.connect(); return; }
     if (this.queued()) { this.socket.emit('matchmaking:cancel'); this.queued.set(false); this.status.set('Búsqueda cancelada.'); }
     else { this.status.set(''); this.socket.emit('matchmaking:join'); }
   }
@@ -202,10 +205,27 @@ export class BattlePageComponent {
     } catch (error) { this.socialNotice.set(this.errorMessage(error, 'No se pudo responder a la solicitud.')); }
   }
 
-  private loadSocial(): void {
-    this.friendsLoading.set(true);
-    this.http.get<Friend[]>(`${API_URL}/friends`).subscribe({ next: (friends) => { this.friends.set(friends); this.friendsError.set(''); this.friendsLoading.set(false); }, error: (error) => { this.friendsError.set(this.errorMessage(error, 'No se pudieron cargar las amistades.')); this.friendsLoading.set(false); } });
-    this.http.get<any>(`${API_URL}/friends/requests`).subscribe({ next: (requests) => this.requests.set(requests), error: () => this.requests.set(null) });
+  loadSocial(): void {
+    if (!this.session.token() || this.socialLoadInFlight) return;
+    this.socialLoadInFlight = true;
+    this.friendsLoading.set(this.friends().length === 0);
+    forkJoin({
+      friends: this.http.get<Friend[]>(`${API_URL}/friends`),
+      requests: this.http.get<any>(`${API_URL}/friends/requests`),
+    }).pipe(timeout({ first: 10_000 }), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: ({ friends, requests }) => {
+        this.friends.set(friends);
+        this.requests.set(requests);
+        this.friendsError.set('');
+        this.friendsLoading.set(false);
+        this.socialLoadInFlight = false;
+      },
+      error: (error) => {
+        this.friendsError.set(this.errorMessage(error, 'No se pudieron cargar las amistades.'));
+        this.friendsLoading.set(false);
+        this.socialLoadInFlight = false;
+      },
+    });
   }
 
   private errorMessage(error: unknown, fallback: string): string { return error instanceof HttpErrorResponse ? error.error?.error ?? fallback : fallback; }
