@@ -124,30 +124,30 @@ body{color:var(--text);background:radial-gradient(ellipse at 93% 2%,#dce9de 0,tr
 .app-shell .auth-card>p,.app-shell .auth-card label{color:#63756b}
 .app-shell .auth-card input{background:#fff;border-color:#d2ddd4;color:#21352e}
 .app-shell .auth-switch{color:#19745c}
-.auth-page .auth-card{background:transparent;border:0;border-radius:0;color:#21352e;box-shadow:none}
-.auth-page .auth-card .eyebrow{color:#bf6242}
-.auth-page .auth-card .auth-intro{color:#596a5f}
-.auth-page .auth-card .required-note,.auth-page .auth-card .field-hint{color:#66766b}
+.auth-page .auth-card{background:transparent;border:0;border-radius:0;color:#e8e9f0;box-shadow:none}
+.auth-page .auth-card .eyebrow{color:#a8b1ff}
+.auth-page .auth-card .auth-intro{color:#b9bfd1}
+.auth-page .auth-card .required-note,.auth-page .auth-card .field-hint{color:#a9aec2}
 .auth-page .auth-card form{display:grid;gap:6px}
-.auth-page .auth-card label{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;color:#2f4438;font-size:13px}
+.auth-page .auth-card label{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;color:#dfe2f4;font-size:13px}
 .auth-page .auth-card .required-marker{font-size:9px}
 .auth-page .auth-card .auth-switch{margin:13px 0 0}
-.auth-page .auth-card input{background:#fffefa;border-color:#d6ddd3;color:#21352e}
-.auth-page .auth-card input:focus{border-color:#19745c;box-shadow:0 0 0 3px #19745c1b}
-.auth-page .auth-card .auth-switch{color:#19745c}
-.auth-page .auth-submit{position:relative;isolation:isolate;overflow:hidden;display:flex;width:100%;min-height:49px;justify-content:space-between;margin-top:7px;padding:0 16px;border:0;border-radius:7px;background:linear-gradient(110deg,#19745c,#278465);color:#fff;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 7px 18px #19745c2c;transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+.auth-page .auth-card input{background:#171821;border-color:#383b4b;color:#e8e9f0}
+.auth-page .auth-card input:focus{border-color:#7b8cff;box-shadow:0 0 0 3px #7b8cff27}
+.auth-page .auth-card .auth-switch{color:#9ba8ff}
+.auth-page .auth-submit{position:relative;isolation:isolate;overflow:hidden;display:flex;width:100%;min-height:49px;justify-content:space-between;margin-top:7px;padding:0 16px;border:0;border-radius:9px;background:linear-gradient(110deg,#4f61e8,#7654d2);color:#fff;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 7px 18px #4f61e83d;transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
 .auth-page .auth-submit::before{position:absolute;z-index:-1;top:-55%;left:-38%;width:25%;height:210%;content:"";background:linear-gradient(90deg,transparent,#ffffff44,transparent);transform:skewX(-22deg);transition:left .55s cubic-bezier(.2,.8,.2,1)}
 .auth-page .auth-submit span{transition:transform .2s ease}
-.auth-page .auth-submit:hover{background:linear-gradient(110deg,#115e4a,#19745c);box-shadow:0 11px 24px #19745c3d;filter:none;transform:translateY(-2px)}
+.auth-page .auth-submit:hover{background:linear-gradient(110deg,#6877f2,#896be0);box-shadow:0 11px 24px #4f61e855;filter:none;transform:translateY(-2px)}
 .auth-page .auth-submit:hover::before{left:118%}
 .auth-page .auth-submit:hover span{transform:translate(3px,-2px)}
-.auth-page .auth-submit:active{transform:translateY(0) scale(.99);box-shadow:0 3px 9px #19745c22}
-.auth-page .auth-submit:focus-visible{outline:3px solid #19745c55;outline-offset:3px}
-.auth-page .auth-submit:disabled{background:#dce9df;color:#557463;box-shadow:none;opacity:1;cursor:not-allowed;transform:none}
+.auth-page .auth-submit:active{transform:translateY(0) scale(.99);box-shadow:0 3px 9px #4f61e822}
+.auth-page .auth-submit:focus-visible{outline:3px solid #9ba8ff77;outline-offset:3px}
+.auth-page .auth-submit:disabled{background:#292c3c;color:#a9aec2;box-shadow:none;opacity:1;cursor:not-allowed;transform:none}
 .auth-page .auth-submit:disabled::before{display:none}
 .app-shell .chart-wrap{color:#273d32}
 .app-shell a:focus-visible,.app-shell button:focus-visible{outline:2px solid #d87450;outline-offset:3px}
-.auth-page a:focus-visible,.auth-page button:focus-visible{outline:2px solid #19745c;outline-offset:3px}
+.auth-page a:focus-visible,.auth-page button:focus-visible{outline:2px solid #9ba8ff;outline-offset:3px}
 @media(max-width:1100px){.sidebar{width:220px}.main-content{margin-left:220px;padding-left:26px;padding-right:26px}.app-shell .dashboard-primary,.app-shell .dashboard-secondary{grid-template-columns:1fr}.app-shell .friends-layout{grid-template-columns:1fr}}
 @media(max-width:850px){.app-shell .main-content{padding:30px 22px 50px}.app-shell .stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.app-shell .page-heading h1{font-size:32px}}
 @media(max-width:700px){.app-shell .sidebar{inset:auto 12px 12px;width:auto;height:62px;padding:7px 9px;border-radius:9px;box-shadow:0 9px 30px #14362e55;z-index:10}.app-shell .sidebar>.brand,.app-shell .side-label,.app-shell .sidebar-spacer,.app-shell .profile{display:none}.app-shell .sidebar nav{width:100%;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}.app-shell .nav-item{height:46px;min-height:46px;padding:3px 2px;display:flex;flex-direction:column;justify-content:center;gap:2px;border-radius:5px;font-size:8px}.app-shell .nav-item>span:last-child{display:none}.app-shell .nav-icon{font-size:11px}.app-shell .main-content{margin:0;padding:28px 17px 100px}.app-shell .page-heading{align-items:flex-start;gap:12px}.app-shell .page-heading h1,.app-shell .typing-session-header h1{font-size:29px}.app-shell .stats-grid{grid-template-columns:1fr 1fr;gap:9px}.app-shell .stat-card{min-height:112px;padding:16px}.app-shell .stat-card>strong{font-size:25px}.app-shell .typing-session-header{align-items:flex-start;gap:12px}.app-shell .typing-clock{padding:8px 10px}.app-shell .typing-metrics{grid-template-columns:repeat(2,1fr)}.app-shell .typing-card{padding:13px}.app-shell .typing-code{padding:15px}.app-shell .typing-code pre{font-size:14px}.app-shell .result-card{align-items:flex-start;flex-wrap:wrap}.app-shell .auth-backdrop{inset:0}.app-shell .battle-scoreboard{grid-template-columns:1fr}.app-shell .friend-request-form{align-items:stretch;flex-direction:column}.app-shell .page-heading .header-streak{padding:8px}.app-shell .lesson-card-foot{gap:10px}.app-shell .lesson-card-foot .button{font-size:9px;padding:7px 9px}}
