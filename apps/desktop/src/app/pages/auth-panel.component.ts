@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { loginSchema, registerSchema } from '@codetype/shared';
@@ -37,7 +37,6 @@ import { translate } from '../core/translation';
           @if (message()) { <p class="auth-error" role="alert">{{ t(message()) }}</p> }
         </form>
         <button class="auth-switch" type="button" (click)="toggle()">{{ t(mode() === 'register' ? '¿Ya tienes cuenta? Inicia sesión' : '¿Aún no tienes cuenta? Regístrate') }}</button>
-        <a class="auth-back" routerLink="/">{{ t('Volver al inicio') }}</a>
       </section>
     </div>
   `,
@@ -52,6 +51,12 @@ export class AuthPanelComponent {
   name = '';
   email = '';
   password = '';
+
+  constructor() {
+    effect(() => {
+      if (this.session.user()) void this.router.navigateByUrl('/dashboard');
+    });
+  }
 
   t(text: string): string { return translate(text, this.session.language()); }
 

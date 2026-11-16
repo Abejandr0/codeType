@@ -6,10 +6,10 @@ import { BattlePageComponent } from './pages/battle.page';
 import { StatisticsPageComponent } from './pages/statistics.page';
 import { SettingsPageComponent } from './pages/settings.page';
 import { AuthPanelComponent } from './pages/auth-panel.component';
-import { LandingPageComponent } from './pages/landing.page';
+import { EntryPageComponent } from './pages/entry.page';
 
 export const appRoutes: Routes = [
-  { path: '', component: LandingPageComponent, title: 'CodeType · Aprende a programar' },
+  { path: '', component: EntryPageComponent, title: 'CodeType · Inicio' },
   { path: 'acceso', component: AuthPanelComponent, title: 'CodeType · Tu cuenta' },
   { path: 'dashboard', component: DashboardPageComponent, title: 'CodeType · Panel' },
   { path: 'ejercicios', component: ExercisesPageComponent, title: 'CodeType · Ejercicios' },
