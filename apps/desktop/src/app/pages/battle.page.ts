@@ -107,7 +107,7 @@ export class BattlePageComponent {
       const start = this.match()?.startsAt;
       this.countdown.set(start ? Math.max(0, Math.ceil((start - Date.now()) / 1000)) : 0);
     });
-    interval(5000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadSocial());
+    interval(30_000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadSocial());
     effect(() => { if (this.session.token()) this.loadSocial(); });
     effect(() => { if (this.match() && !this.countdown() && !this.result()) queueMicrotask(() => this.focusInput()); });
   }
@@ -228,5 +228,9 @@ export class BattlePageComponent {
     });
   }
 
-  private errorMessage(error: unknown, fallback: string): string { return error instanceof HttpErrorResponse ? error.error?.error ?? fallback : fallback; }
+  private errorMessage(error: unknown, fallback: string): string {
+    if (!(error instanceof HttpErrorResponse)) return fallback;
+    if (error.status === 429) return 'Se alcanzó el límite de solicitudes. Espera un momento y vuelve a intentar.';
+    return error.error?.error ?? error.error?.message ?? fallback;
+  }
 }

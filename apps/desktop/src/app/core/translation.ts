@@ -72,6 +72,7 @@ const english: Record<string, string> = {
   "Repetir": "Try again",
   "Cargando…": "Loading…",
   "Demasiados intentos recientes. Espera un minuto y vuelve a intentarlo.": "Too many recent attempts. Wait a minute and try again.",
+  "Se alcanzó el límite de solicitudes. Espera un momento y vuelve a intentar.": "The request limit was reached. Wait a moment and try again.",
   "No se encontraron lecciones.": "No lessons found.",
   "PRÁCTICA DE CÓDIGO": "CODE PRACTICE",
   "Práctica de código": "Code practice",

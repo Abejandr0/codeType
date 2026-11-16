@@ -32,18 +32,28 @@ const clientOrigins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173').spl
 await app.register(cors, { origin: [...clientOrigins, 'null'], credentials: true });
 await app.register(cookie);
 await app.register(jwt, { secret: accessSecret });
-await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
+await app.register(rateLimit, {
+  // Normal app use includes periodic friend/presence refreshes. Keep a generous
+  // general ceiling and apply tighter limits to costly authentication routes.
+  max: 600,
+  timeWindow: '1 minute',
+  errorResponseBuilder: (_request, context) => ({
+    statusCode: context.statusCode,
+    error: 'Demasiadas solicitudes recientes',
+    message: `Vuelve a intentarlo en ${context.after}.`,
+  }),
+});
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const accessCookie = { httpOnly: true, sameSite: 'lax' as const, secure: process.env.NODE_ENV === 'production', path: '/' };
 app.decorate('authenticate', async (request: any, reply: any) => { try { await request.jwtVerify(); } catch { return reply.code(401).send({ error: 'Inicia sesión para continuar.' }); } });
 app.get('/health', async () => ({ status: 'ok' }));
-app.post('/auth/register', async (request, reply) => {
+app.post('/auth/register', { config: { rateLimit: { max: 10, timeWindow: '1 minute', groupId: 'auth-register' } } }, async (request, reply) => {
   const input = registerSchema.safeParse(request.body); if (!input.success) return reply.code(400).send({ error: input.error.issues[0]?.message });
   const exists = await prisma.user.findUnique({ where: { email: input.data.email.toLowerCase() } }); if (exists) return reply.code(409).send({ error: 'Este correo ya está registrado.' });
   const user = await prisma.user.create({ data: { name: input.data.name, email: input.data.email.toLowerCase(), passwordHash: await argon2.hash(input.data.password), settings: { create: {} } } });
   return issueSession(user, reply);
 });
-app.post('/auth/login', async (request, reply) => {
+app.post('/auth/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute', groupId: 'auth-login' } } }, async (request, reply) => {
   const input = loginSchema.safeParse(request.body); if (!input.success) return reply.code(400).send({ error: 'Correo o contraseña inválidos.' });
   const user = await prisma.user.findUnique({ where: { email: input.data.email.toLowerCase() } });
   if (!user || !(await argon2.verify(user.passwordHash, input.data.password))) return reply.code(401).send({ error: 'Correo o contraseña incorrectos.' });

@@ -40,7 +40,7 @@ import { translate } from '../core/translation';
             <h1 id="auth-heading">{{ t(mode() === 'register' ? 'Crea tu cuenta' : 'Qué bueno verte') }}</h1>
             <p class="auth-intro">{{ t(mode() === 'register' ? 'Crea tu espacio y guarda cada avance.' : 'Inicia sesión para continuar tu práctica.') }}</p>
             <p class="required-note">{{ t('Los campos con * son obligatorios.') }}</p>
-            <form (ngSubmit)="submit()" #authForm="ngForm" novalidate>
+            <form (ngSubmit)="submit()" novalidate>
               @if (mode() === 'register') {
                 <label for="auth-name">{{ t('Nombre') }} <span class="required-marker">* {{ t('Obligatorio') }}</span></label>
                 <input id="auth-name" name="name" [(ngModel)]="name" required minlength="2" maxlength="60" autocomplete="name" [attr.aria-describedby]="'name-help'" />
@@ -52,7 +52,7 @@ import { translate } from '../core/translation';
               <label for="auth-password">{{ t('Contraseña') }} <span class="required-marker">* {{ t('Obligatorio') }}</span></label>
               <input id="auth-password" name="password" type="password" [(ngModel)]="password" required [minlength]="mode() === 'register' ? 10 : 1" maxlength="128" [autocomplete]="mode() === 'register' ? 'new-password' : 'current-password'" [attr.aria-describedby]="mode() === 'register' ? 'password-help' : null" />
               @if (mode() === 'register') { <small id="password-help" class="field-hint">{{ t('Usa entre 10 y 128 caracteres.') }}</small> }
-              <button class="button primary auth-submit" type="submit" [disabled]="loading() || !authForm.valid">{{ loading() ? t('Conectando…') : mode() === 'register' ? t('Crear cuenta') : t('Iniciar sesión') }}<span aria-hidden="true">↗</span></button>
+              <button class="button primary auth-submit" type="submit" [disabled]="loading()">{{ loading() ? t('Conectando…') : mode() === 'register' ? t('Crear cuenta') : t('Iniciar sesión') }}<span aria-hidden="true">↗</span></button>
               @if (message()) { <p class="auth-error" role="alert">{{ t(message()) }}</p> }
             </form>
             <button class="auth-switch" type="button" (click)="toggle()">{{ t(mode() === 'register' ? '¿Ya tienes cuenta? Inicia sesión' : '¿Aún no tienes cuenta? Regístrate') }}</button>
