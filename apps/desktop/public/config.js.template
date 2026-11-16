@@ -1,0 +1,3 @@
+window.CODETYPE_CONFIG = {
+  apiUrl: '${CODETYPE_API_URL}',
+};

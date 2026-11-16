@@ -17,5 +17,6 @@ Las funcionalidades se implementan en ramas `feature/<área>`, se validan antes 
 | `fix/electron-dev-sandbox-fallback` | Alternativa local de desarrollo en Linux cuando el sistema bloquea namespaces |
 | `feature/public-entry-onboarding` | Página pública con catálogo real y registro con requisitos explícitos |
 | `fix/typing-input-pause-and-lesson-content` | Entrada de texto compatible con teclas muertas, pausa, 40 lecciones, explicaciones de código, mapa de calor y elementos difíciles |
+| `feature/deployable-web-stack` | Imágenes Docker reproducibles, API configurable en tiempo de ejecución y despliegue web privado con Compose |
 
 Las ramas son acumulativas: cada una parte de la anterior ya integrada en `main`. Para revisar una función, consultar los commits de su rama desde el merge base con `main`.

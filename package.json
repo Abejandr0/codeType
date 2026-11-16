@@ -8,16 +8,21 @@
   ],
   "scripts": {
     "dev": "concurrently -k -n server,desktop -c blue,magenta \"npm:dev:server\" \"npm:dev:desktop\"",
+    "predev": "npm run build --workspace packages/shared",
     "dev:server": "npm --workspace apps/server run dev",
     "dev:desktop": "npm --workspace apps/desktop run dev",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace packages/shared && npm run build --workspace apps/desktop && npm run build --workspace apps/server",
+    "pretest": "npm run build --workspace packages/shared",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm --workspace apps/desktop run test:e2e",
     "seed": "npm --workspace apps/server run seed",
     "db:migrate": "npm --workspace apps/server run db:migrate",
     "package:linux": "npm --workspace apps/desktop run package:linux",
     "package:mac": "npm --workspace apps/desktop run package:mac",
-    "package:windows": "npm --workspace apps/desktop run package:windows"
+    "package:windows": "npm --workspace apps/desktop run package:windows",
+    "deploy:up": "docker compose -f docker-compose.deploy.yml up --build -d",
+    "deploy:logs": "docker compose -f docker-compose.deploy.yml logs -f",
+    "deploy:down": "docker compose -f docker-compose.deploy.yml down"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
