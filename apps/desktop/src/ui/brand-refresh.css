@@ -124,13 +124,20 @@ body{color:var(--text);background:radial-gradient(ellipse at 93% 2%,#dce9de 0,tr
 .app-shell .auth-card>p,.app-shell .auth-card label{color:#63756b}
 .app-shell .auth-card input{background:#fff;border-color:#d2ddd4;color:#21352e}
 .app-shell .auth-switch{color:#19745c}
-.auth-page .auth-card{background:#fffefa;border:1px solid #dfe4dc;border-radius:8px;color:#21352e;box-shadow:0 18px 50px #19392e16}
-.auth-page .auth-card h1{color:#21352e}
-.auth-page .auth-card>p{color:#68786f}
-.auth-page .auth-card label{color:#31443b}
-.auth-page .auth-card input{background:#fff;border-color:#d2ddd4;color:#21352e}
-.auth-page .auth-card input:focus{border-color:#398a70;box-shadow:0 0 0 3px #398a7022}
-.auth-page .auth-card .auth-switch{color:#19745c}
+.auth-page .auth-card{background:transparent;border:0;border-radius:0;color:#21352e;box-shadow:none}
+.auth-page .auth-card .eyebrow{color:#c64b31}
+.auth-page .auth-card .auth-intro{color:#596a5f}
+.auth-page .auth-card .required-note,.auth-page .auth-card .field-hint{color:#66766b}
+.auth-page .auth-card form{display:grid;gap:6px}
+.auth-page .auth-card label{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;color:#2f4438;font-size:13px}
+.auth-page .auth-card .required-marker{font-size:9px}
+.auth-page .auth-card .auth-switch{margin:13px 0 0}
+.auth-page .auth-card input{background:#fffefa;border-color:#d6ddd3;color:#21352e}
+.auth-page .auth-card input:focus{border-color:#c64b31;box-shadow:0 0 0 3px #c64b311b}
+.auth-page .auth-card .auth-switch{color:#536c5d}
+.auth-page .auth-submit{display:flex;width:100%;min-height:47px;justify-content:space-between;margin-top:7px;padding:0 15px;border:0;border-radius:5px;background:#c84f34;color:#fffaf0;font-size:12px;font-weight:700;text-decoration:none}
+.auth-page .auth-submit:hover{background:#ad4029;filter:none}
+.auth-page .auth-submit:disabled{background:#dca997;color:#fffaf0;opacity:1;cursor:not-allowed;transform:none}
 .app-shell .chart-wrap{color:#273d32}
 .app-shell a:focus-visible,.app-shell button:focus-visible,.auth-page a:focus-visible,.auth-page button:focus-visible{outline:2px solid #d87450;outline-offset:3px}
 @media(max-width:1100px){.sidebar{width:220px}.main-content{margin-left:220px;padding-left:26px;padding-right:26px}.app-shell .dashboard-primary,.app-shell .dashboard-secondary{grid-template-columns:1fr}.app-shell .friends-layout{grid-template-columns:1fr}}

@@ -253,6 +253,17 @@ const english: Record<string, string> = {
 };
 
 const extraEnglish: Record<string, string> = {
+  'APRENDER CÓDIGO, TECLA A TECLA': 'LEARN CODE, ONE KEY AT A TIME',
+  'Programa con las manos.': 'Code with your hands.', 'Comprende cada línea.': 'Understand every line.',
+  'CodeType enseña programación con ejercicios de escritura: practica código real, entiende sus instrucciones y mide cómo mejoras.': 'CodeType teaches programming through typing exercises: practice real code, understand its instructions, and measure your progress.',
+  'ESCRIBE': 'TYPE', 'COMPRENDE': 'UNDERSTAND', 'MEJORA': 'IMPROVE',
+  'Lecciones de Python y JavaScript': 'Python and JavaScript lessons',
+  'Velocidad y precisión por práctica': 'Speed and accuracy for each session',
+  'Retos de código en vivo': 'Live coding duels', 'ESTUDIO DE PROGRAMACIÓN': 'PROGRAMMING STUDIO',
+  'TU ESPACIO DE PRÁCTICA': 'YOUR PRACTICE SPACE',
+  'Crea tu espacio y guarda cada avance.': 'Create your space and save every step.',
+  'Inicia sesión para continuar tu práctica.': 'Sign in to continue your practice.',
+  'Tu progreso se guarda en tu cuenta.': 'Your progress is saved to your account.',
   'LABORATORIO DE MECANOGRAFÍA': 'CODE TYPING LAB', 'Entrar al estudio': 'Enter the lab',
   'CÓDIGO · RITMO · PRECISIÓN': 'CODE · RHYTHM · PRECISION', 'PYTHON + JAVASCRIPT': 'PYTHON + JAVASCRIPT',
   'APRENDER TAMBIÉN ES ENTRENAR LAS MANOS': 'LEARNING ALSO MEANS TRAINING YOUR HANDS',
