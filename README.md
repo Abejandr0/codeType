@@ -22,7 +22,7 @@ Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:300
 
 Compose levanta la interfaz Angular, Fastify, PostgreSQL y Redis. Solo publica el puerto web; API, base de datos y Redis quedan dentro de la red privada de Docker. Al iniciar, la API aplica migraciones y siembra el catálogo idempotente. PostgreSQL y Redis conservan sus datos en volúmenes.
 
-1. Copia `.env.example` a `.env`.
+1. Si `.env` aún no existe, copia `.env.example`. Si ya existe, agrega a `.env` las variables de despliegue que aparecen en `.env.example` para conservar tus secretos locales.
 2. Cambia `POSTGRES_PASSWORD` por una contraseña larga URL-safe y define dos secretos JWT aleatorios, distintos y de al menos 32 caracteres.
 3. Para un dominio público, cambia `CLIENT_ORIGIN` por su origen HTTPS y coloca un proxy TLS delante del puerto configurado en `CODETYPE_WEB_PORT`.
 4. Ejecuta `npm run deploy:up` y abre `http://localhost:8080` (o el puerto que configuraste).
