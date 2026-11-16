@@ -46,7 +46,7 @@ Compose levanta Caddy, la interfaz Angular, Fastify, PostgreSQL y Redis. Caddy p
 
 - Registro e inicio de sesión con argon2, access JWT y refresh JWT rotatorio en cookie httpOnly.
 - PostgreSQL/Prisma con migraciones para usuarios, ajustes, lecciones, intentos, pulsaciones y batallas.
-- Cuarenta lecciones sembradas: cinco por lenguaje y ruta para Python y JavaScript en Introducción, Condicionales, Bucles y Funciones; explicaciones específicas y progreso bloqueado por requisitos de aprobación.
+- Cuarenta lecciones reales sembradas: veinte de Python y veinte de JavaScript. Cada lenguaje tiene cinco lecciones por ruta, numeradas consecutivamente del 1 al 20 en Introducción, Condicionales, Bucles y Funciones; cada fragmento incluye una explicación y el progreso respeta los requisitos de aprobación.
 - Práctica carácter a carácter, Enter, Tab, autoindentado, composición de teclas muertas, pegado bloqueado, métrica WPM/precisión y almacenamiento de cada pulsación validada en servidor.
 - Dashboard guiado por el diseño adjunto, con racha según zona horaria, actividad reciente, avance de ruta, reto determinista por fecha y meta diaria calculada con intentos guardados.
 - Matchmaking Socket.IO con cola, presencia y salas compartidas por Redis entre procesos, fragmento compartido, cuenta regresiva, progreso validado, reconexión breve, abandono, chat predefinido, persistencia de resultado y Elo.

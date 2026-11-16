@@ -3,6 +3,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { API_URL, SessionService } from '../core/session.service';
 import { translate } from '../core/translation';
+import { compareLearningPaths } from '@codetype/shared';
 
 interface Lesson { id: string; title: string; language: string; path: string; level: number; code: string; status: 'locked' | 'in_progress' | 'completed'; minAccuracy: number }
 
@@ -19,7 +20,12 @@ export class ExercisesPageComponent {
   t(text: string): string { return translate(text, this.session.language()); }
   readonly lessons = signal<Lesson[]>([]);
   readonly defaultLanguage = signal('Python');
-  readonly visibleLessons = computed(() => [...this.lessons()].sort((first, second) => Number(second.language === this.defaultLanguage()) - Number(first.language === this.defaultLanguage())));
+  readonly visibleLessons = computed(() => [...this.lessons()].sort((first, second) =>
+    compareLearningPaths(first.path, second.path)
+    || Number(second.language === this.defaultLanguage()) - Number(first.language === this.defaultLanguage())
+    || first.level - second.level
+    || first.id.localeCompare(second.id),
+  ));
   readonly loading = signal(true);
   readonly error = signal('');
   constructor() {

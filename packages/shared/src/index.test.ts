@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateMetrics, typeCharacter } from './index';
+import { calculateMetrics, compareLessons, compareLearningPaths, typeCharacter } from './index';
 
 describe('typing engine primitives', () => {
   it('advances on correct input and holds position on mistakes', () => {
@@ -19,5 +19,18 @@ describe('typing engine primitives', () => {
   });
   it('calculates WPM and accuracy from actual counts', () => {
     expect(calculateMetrics(100, 10, 60_000)).toEqual({ wpm: 20, accuracy: 90.9, errors: 10, elapsedMs: 60_000 });
+  });
+  it('orders learning paths in curriculum order', () => {
+    expect(['Funciones', 'Bucles', 'Introducción', 'Condicionales'].sort(compareLearningPaths))
+      .toEqual(['Introducción', 'Condicionales', 'Bucles', 'Funciones']);
+  });
+  it('orders lessons by path, language, and their own level sequence', () => {
+    const lessons = [
+      { id: 'js-2', path: 'Introducción', language: 'JavaScript', level: 2 },
+      { id: 'py-1', path: 'Introducción', language: 'Python', level: 1 },
+      { id: 'js-1', path: 'Introducción', language: 'JavaScript', level: 1 },
+      { id: 'py-cond', path: 'Condicionales', language: 'Python', level: 6 },
+    ];
+    expect(lessons.sort(compareLessons).map(({ id }) => id)).toEqual(['js-1', 'js-2', 'py-1', 'py-cond']);
   });
 });

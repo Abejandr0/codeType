@@ -8,6 +8,26 @@ export const friendRequestSchema = z.object({ email: z.string().trim().email() }
 export const completeLessonSchema = z.object({ lessonId: z.string().min(1), correctChars: z.number().int().nonnegative(), errors: z.number().int().nonnegative(), durationMs: z.number().int().positive(), keystrokes: z.array(z.object({ expected: z.string(), actual: z.string(), elapsedMs: z.number().int().nonnegative(), correct: z.boolean() })).max(10000) });
 export type Keystroke = z.infer<typeof completeLessonSchema>['keystrokes'][number];
 export type ProfileUpdate = z.infer<typeof profileSchema>;
+
+export const LEARNING_PATHS = ['Introducción', 'Condicionales', 'Bucles', 'Funciones'] as const;
+
+export function compareLearningPaths(left: string, right: string): number {
+  const leftIndex = LEARNING_PATHS.indexOf(left as (typeof LEARNING_PATHS)[number]);
+  const rightIndex = LEARNING_PATHS.indexOf(right as (typeof LEARNING_PATHS)[number]);
+  const leftOrder = leftIndex < 0 ? LEARNING_PATHS.length : leftIndex;
+  const rightOrder = rightIndex < 0 ? LEARNING_PATHS.length : rightIndex;
+  return leftOrder - rightOrder || left.localeCompare(right, 'es');
+}
+
+export type OrderedLesson = { id: string; language: string; path: string; level: number };
+
+export function compareLessons(left: OrderedLesson, right: OrderedLesson): number {
+  return compareLearningPaths(left.path, right.path)
+    || left.language.localeCompare(right.language, 'es')
+    || left.level - right.level
+    || left.id.localeCompare(right.id);
+}
+
 export function calculateMetrics(correctChars: number, errors: number, elapsedMs: number) {
   const minutes = Math.max(elapsedMs / 60_000, 1 / 60_000);
   const total = correctChars + errors;

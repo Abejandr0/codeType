@@ -50,16 +50,34 @@ const catalog: LessonSeed[] = [
   ['js-fn-5','JavaScript','Funciones','Componer funciones','const doble = numero => numero * 2;\nconst resultado = doble(6);\nconsole.log(resultado);','La función flecha devuelve el doble del argumento. La siguiente línea guarda el resultado de llamarla con 6 y la última lo imprime.'],
 ];
 
-const lessons = catalog.map(([id, language, path, title, code, tip], index) => ({
-  id,
-  language,
-  path,
-  title,
-  code,
-  tip,
-  level: index + 1,
-  minAccuracy: 85,
-}));
+const languageLevels = new Map<LessonSeed[1], number>();
+const lessons = catalog.map(([id, language, path, title, code, tip]) => {
+  const level = (languageLevels.get(language) ?? 0) + 1;
+  languageLevels.set(language, level);
+  return { id, language, path, title, code, tip, level, minAccuracy: 85 };
+});
+
+if (lessons.some((lesson) => !lesson.code.trim() || !lesson.tip.trim())) {
+  throw new Error('Todas las lecciones deben incluir código y una explicación real.');
+}
+
+for (const language of ['Python', 'JavaScript'] as const) {
+  const languageLessons = lessons.filter((lesson) => lesson.language === language);
+  if (languageLessons.length !== 20) throw new Error(`El catálogo de ${language} debe tener 20 lecciones.`);
+  if (languageLessons.some((lesson, index) => lesson.level !== index + 1)) {
+    throw new Error(`Los niveles de ${language} deben avanzar de forma consecutiva.`);
+  }
+  const pathOrder = ['Introducción', 'Condicionales', 'Bucles', 'Funciones'];
+  if (languageLessons.some((lesson, index) => index > 0 && pathOrder.indexOf(lesson.path) < pathOrder.indexOf(languageLessons[index - 1]!.path))) {
+    throw new Error(`Las rutas de ${language} deben conservar el orden del temario.`);
+  }
+  for (const path of pathOrder) {
+    const track = languageLessons.filter((lesson) => lesson.path === path);
+    if (track.length !== 5) {
+      throw new Error(`La ruta ${path} de ${language} debe tener cinco lecciones.`);
+    }
+  }
+}
 
 async function main(): Promise<void> {
   for (const lesson of lessons) {
