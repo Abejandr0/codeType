@@ -70,6 +70,7 @@ model Keystroke {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expected  String
   actual    String
+  context   String?  @db.Text
   elapsedMs Int
   correct   Boolean
   createdAt DateTime @default(now())

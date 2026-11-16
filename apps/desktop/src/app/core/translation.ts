@@ -253,6 +253,14 @@ const english: Record<string, string> = {
 };
 
 const extraEnglish: Record<string, string> = {
+  'Progreso': 'Progress', 'Pausar': 'Pause', 'Reanudar': 'Resume', 'Práctica pausada': 'Practice paused',
+  'Tiempo activo': 'Active time', '¿QUÉ HACE ESTE CÓDIGO?': 'WHAT DOES THIS CODE DO?',
+  'Sesión del catálogo común': 'Session from the shared lesson catalog',
+  'Palabras y elementos que cuestan más': 'Most difficult words and code elements',
+  'Mapa de calor de errores por tecla': 'Keyboard error heat map', 'Sin errores': 'No errors', 'Más errores': 'Most errors',
+  'Salto de línea': 'Line break', 'Tabulación': 'Tab', 'Espaciado entre elementos': 'Spacing between elements',
+  'Indentación': 'Indentation', 'Símbolo': 'Symbol',
+  'Se usa para calcular el día de tu racha, los retos diarios y el avance de tu meta.': 'Used to calculate your streak day, daily challenges and daily-goal progress.',
   'Cómo funciona': 'How it works', 'Contenido': 'Content', 'APRENDE PROGRAMANDO': 'LEARN BY CODING',
   'Aprende a programar, una tecla a la vez.': 'Learn to code, one keystroke at a time.',
   'Practica código real, entiende cada línea y mide tu progreso con ejercicios y duelos en vivo.': 'Practice real code, understand each line, and track your progress through lessons and live duels.',
