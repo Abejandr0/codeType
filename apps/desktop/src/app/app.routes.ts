@@ -5,9 +5,13 @@ import { TypingPageComponent } from './pages/typing.page';
 import { BattlePageComponent } from './pages/battle.page';
 import { StatisticsPageComponent } from './pages/statistics.page';
 import { SettingsPageComponent } from './pages/settings.page';
+import { AuthPanelComponent } from './pages/auth-panel.component';
+import { LandingPageComponent } from './pages/landing.page';
 
 export const appRoutes: Routes = [
-  { path: '', component: DashboardPageComponent, title: 'CodeType · Inicio' },
+  { path: '', component: LandingPageComponent, title: 'CodeType · Aprende a programar' },
+  { path: 'acceso', component: AuthPanelComponent, title: 'CodeType · Tu cuenta' },
+  { path: 'dashboard', component: DashboardPageComponent, title: 'CodeType · Panel' },
   { path: 'ejercicios', component: ExercisesPageComponent, title: 'CodeType · Ejercicios' },
   { path: 'leccion/:id', component: TypingPageComponent, title: 'CodeType · Práctica' },
   { path: 'batalla', component: BattlePageComponent, title: 'CodeType · Batalla 1v1' },
