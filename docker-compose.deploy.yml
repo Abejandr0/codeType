@@ -75,12 +75,28 @@ services:
     restart: unless-stopped
     environment:
       CODETYPE_API_URL: ${CODETYPE_API_URL:-}
-    ports:
-      - "${CODETYPE_WEB_PORT:-8080}:80"
     depends_on:
       api:
         condition: service_healthy
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      CODETYPE_DOMAIN: ${CODETYPE_DOMAIN:?Define CODETYPE_DOMAIN en .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - codetype_caddy_data:/data
+      - codetype_caddy_config:/config
+    depends_on:
+      - web
+
 volumes:
   codetype_pg:
   codetype_redis:
+  codetype_caddy_data:
+  codetype_caddy_config:

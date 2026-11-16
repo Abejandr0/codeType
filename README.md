@@ -20,13 +20,13 @@ Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:300
 
 ## Despliegue web con Docker
 
-Compose levanta la interfaz Angular, Fastify, PostgreSQL y Redis. Solo publica el puerto web; API, base de datos y Redis quedan dentro de la red privada de Docker. Al iniciar, la API aplica migraciones y siembra el catálogo idempotente. PostgreSQL y Redis conservan sus datos en volúmenes.
+Compose levanta Caddy, la interfaz Angular, Fastify, PostgreSQL y Redis. Caddy publica HTTP/HTTPS, obtiene y renueva el certificado TLS para el dominio y reenvía el tráfico a Nginx. La API, la base de datos y Redis quedan dentro de la red privada de Docker. Al iniciar, la API aplica migraciones y siembra el catálogo idempotente. PostgreSQL, Redis y el estado de certificados de Caddy se conservan en volúmenes.
 
-1. Si `.env` aún no existe, copia `.env.example`. Si ya existe, agrega a `.env` las variables de despliegue que aparecen en `.env.example` para conservar tus secretos locales.
-2. Cambia `POSTGRES_PASSWORD` por una contraseña larga URL-safe y define dos secretos JWT aleatorios, distintos y de al menos 32 caracteres.
-3. Para un dominio público, cambia `CLIENT_ORIGIN` por su origen HTTPS y coloca un proxy TLS delante del puerto configurado en `CODETYPE_WEB_PORT`.
-4. Ejecuta `npm run deploy:up` y abre `http://localhost:8080` (o el puerto que configuraste).
-5. Consulta los registros con `npm run deploy:logs`; para detener los servicios usa `npm run deploy:down`.
+1. Asocia una IP estática a la instancia y crea un registro DNS `A` del dominio hacia esa IP. En el firewall de Lightsail permite SSH y los puertos TCP 80 y 443; no abras 3001, 5432 ni 6379. UDP 443 es opcional para HTTP/3.
+2. Copia `.env.example` a `.env`. Define `CODETYPE_DOMAIN` con el dominio público, `CLIENT_ORIGIN` con su origen HTTPS, una contraseña PostgreSQL larga URL-safe y dos secretos JWT aleatorios, distintos y de al menos 32 caracteres.
+3. Desde la raíz del repositorio, ejecuta `docker compose -f docker-compose.deploy.yml up --build -d`. Caddy obtendrá el certificado cuando el DNS ya resuelva a la instancia y los puertos 80/443 sean accesibles.
+4. Abre `https://tu-dominio` y verifica `https://tu-dominio/health`.
+5. Consulta los registros con `docker compose -f docker-compose.deploy.yml logs -f caddy api migrate`; para detener los servicios usa `docker compose -f docker-compose.deploy.yml down`.
 
 `CODETYPE_API_URL` queda vacío para que la web use el mismo origen y Nginx reenvíe API y Socket.IO. La interfaz Electron conserva `http://localhost:3001`; su flujo local no cambia.
 
