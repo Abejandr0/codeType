@@ -28,6 +28,30 @@ export function compareLessons(left: OrderedLesson, right: OrderedLesson): numbe
     || left.id.localeCompare(right.id);
 }
 
+export type KeyboardLayout = 'ES' | 'LATAM' | 'US';
+
+export function typingKeyInstruction(character: string, layout: KeyboardLayout): { key: string; shift: boolean } {
+  if (character === '\n') return { key: 'Enter', shift: false };
+  if (character === '\t') return { key: 'Tab', shift: false };
+  if (character === ' ') return { key: 'Espacio', shift: false };
+  if (/^[A-ZÁÉÍÓÚÜÑ]$/.test(character)) return { key: character.toLocaleLowerCase('es'), shift: true };
+
+  const shiftedDigits: Record<KeyboardLayout, string> = {
+    ES: '!"·$%&/()=',
+    LATAM: '!"#$%&/()=',
+    US: '!@#$%^&*()',
+  };
+  const digitIndex = shiftedDigits[layout].indexOf(character);
+  if (digitIndex >= 0) return { key: '1234567890'[digitIndex]!, shift: true };
+
+  if (layout === 'US' && character === '"') return { key: "'", shift: true };
+  if (layout === 'US' && '_+{}|:"<>?'.includes(character)) {
+    const shifted: Record<string, string> = { _: '-', '+': '=', '{': '[', '}': ']', '|': '\\', ':': ';', '"': "'", '<': ',', '>': '.', '?': '/' };
+    return { key: shifted[character]!, shift: true };
+  }
+  return { key: character, shift: false };
+}
+
 export function calculateMetrics(correctChars: number, errors: number, elapsedMs: number) {
   const minutes = Math.max(elapsedMs / 60_000, 1 / 60_000);
   const total = correctChars + errors;

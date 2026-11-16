@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateMetrics, compareLessons, compareLearningPaths, typeCharacter } from './index';
+import { calculateMetrics, compareLessons, compareLearningPaths, typeCharacter, typingKeyInstruction } from './index';
 
 describe('typing engine primitives', () => {
   it('advances on correct input and holds position on mistakes', () => {
@@ -32,5 +32,12 @@ describe('typing engine primitives', () => {
       { id: 'py-cond', path: 'Condicionales', language: 'Python', level: 6 },
     ];
     expect(lessons.sort(compareLessons).map(({ id }) => id)).toEqual(['js-1', 'js-2', 'py-1', 'py-cond']);
+  });
+  it('shows the real key combination for uppercase and layout-specific symbols', () => {
+    expect(typingKeyInstruction('H', 'ES')).toEqual({ key: 'h', shift: true });
+    expect(typingKeyInstruction('"', 'ES')).toEqual({ key: '2', shift: true });
+    expect(typingKeyInstruction('"', 'US')).toEqual({ key: "'", shift: true });
+    expect(typingKeyInstruction('\n', 'ES')).toEqual({ key: 'Enter', shift: false });
+    expect(typingKeyInstruction('\t', 'ES')).toEqual({ key: 'Tab', shift: false });
   });
 });

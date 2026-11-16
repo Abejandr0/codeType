@@ -8,12 +8,24 @@ test('registers, loads seeded exercises, and saves a completed typing attempt', 
   await page.getByLabel('Contraseña').fill('correct-horse-42');
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
   await expect(page.getByRole('heading', { name: 'Panel de Inicio' })).toBeVisible();
-  await page.getByRole('link', { name: 'Ejercicios' }).click();
+  await page.getByRole('link', { name: 'Ejercicios', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Ejercicios' })).toBeVisible();
   await expect(page.getByText('Mostrar un mensaje')).toBeVisible();
   await page.getByRole('link', { name: /Mostrar un mensaje/ }).click();
   const input = page.getByRole('textbox', { name: 'Escribe el código tal como aparece. Pegar está desactivado.' });
   await input.focus();
+  await page.keyboard.type('print("', { delay: 35 });
+  await expect(page.locator('.char-cursor')).toHaveText('H');
+  await expect(page.locator('.typing-hint')).toContainText('Mayús + H');
+  await page.keyboard.press('h');
+  await expect(page.locator('.typing-hint')).toContainText('Se esperaba “H”');
+  await expect(page.locator('.char-cursor')).toHaveText('H');
+  await page.keyboard.type('H');
+  await expect(page.locator('.char-cursor')).toHaveText('o');
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBeTruthy();
+  await page.reload();
+  await expect(page.locator('.char-cursor')).toHaveText('p');
+  await page.getByRole('textbox', { name: 'Escribe el código tal como aparece. Pegar está desactivado.' }).focus();
   const savedAttempt = page.waitForResponse(response => response.url().includes('/lessons/complete') && response.request().method() === 'POST');
   await page.keyboard.type('print("Hola, mundo")', { delay: 55 });
   const response = await savedAttempt;
@@ -27,6 +39,19 @@ test('registers, loads seeded exercises, and saves a completed typing attempt', 
   await expect(page.locator('canvas[aria-label="Gráfica de progreso de velocidad y precisión"]')).toBeVisible();
   await page.getByRole('button', { name: 'Todo' }).click();
   await expect(page.getByRole('button', { name: 'Todo' })).toHaveAttribute('aria-pressed', 'true');
+
+  await page.locator('nav').getByRole('link', { name: 'Ejercicios' }).click();
+  await page.getByRole('link', { name: /Declarar una constante/ }).click();
+  const javascriptInput = page.getByRole('textbox', { name: 'Escribe el código tal como aparece. Pegar está desactivado.' });
+  await javascriptInput.focus();
+  await page.keyboard.type('const saludo = ', { delay: 60 });
+  await expect(page.locator('.typing-hint')).toContainText('Mayús + 2');
+  const javascriptSave = page.waitForResponse(response => response.url().includes('/lessons/complete') && response.request().method() === 'POST');
+  await page.keyboard.type('"Hola, mundo";', { delay: 60 });
+  const javascriptResponse = await javascriptSave;
+  expect(javascriptResponse.ok()).toBeTruthy();
+  expect((await javascriptResponse.json()).passed).toBeTruthy();
+  await expect(page.getByText('¡Lección completada!')).toBeVisible();
 });
 
 test('updates profile and preferences, exports data, and deletes its test account', async ({ page }) => {
