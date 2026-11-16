@@ -269,8 +269,13 @@ export class TypingPageComponent {
       this.finalMetrics.set(result.metrics);
       this.saveState.set('saved');
       this.attemptPassed.set(result.passed === true);
+      if (typeof result.xp === 'number') this.session.updateExperience(result.xp);
       if (result.passed === true) await this.prepareNextLesson(lesson);
-      if (this.settings?.notifications) void window.codeTypeDesktop?.notifyPracticeComplete({ lessonTitle: lesson.title, accuracy: result.metrics.accuracy, wpm: result.metrics.wpm });
+      if (this.settings?.notifications) {
+        const notice = { lessonTitle: lesson.title, accuracy: result.metrics.accuracy, wpm: result.metrics.wpm };
+        if (window.codeTypeDesktop?.notifyPracticeComplete) void window.codeTypeDesktop.notifyPracticeComplete(notice);
+        else if ('Notification' in window && Notification.permission === 'granted') new Notification('CodeType · práctica guardada', { body: `${notice.lessonTitle} · ${notice.accuracy}% de precisión · ${notice.wpm} WPM` });
+      }
     } catch { if (lesson.id === this.lesson()?.id && this.done()) this.saveState.set('error'); }
   }
 

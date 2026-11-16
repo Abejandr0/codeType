@@ -44,6 +44,8 @@ export class DashboardPageComponent {
   readonly Math = Math;
   readonly name = signal('');
   readonly defaultLanguage = signal('Python');
+  private dashboardLoaded = false;
+  private lessonsLoaded = false;
   readonly next = () => this.lessons().find((lesson) => lesson.status === 'in_progress' && lesson.language === this.defaultLanguage()) ?? this.lessons().find((lesson) => lesson.status === 'in_progress') ?? this.lessons().find((lesson) => lesson.status !== 'locked' && lesson.language === this.defaultLanguage()) ?? this.lessons().find((lesson) => lesson.status !== 'locked') ?? null;
   readonly currentPath = () => this.next()?.path ?? this.paths[0];
   readonly completion = () => this.lessons().length ? Math.round(this.lessons().filter((lesson) => lesson.status === 'completed').length / this.lessons().length * 100) : 0;
@@ -57,9 +59,13 @@ export class DashboardPageComponent {
   }
 
   constructor() {
-    this.http.get<Dashboard>(`${API_URL}/dashboard`).subscribe({ next: (data) => { this.data.set(data); this.loading.set(false); }, error: () => { this.error.set('Inicia sesión para consultar tu progreso.'); this.loading.set(false); } });
-    this.http.get<Lesson[]>(`${API_URL}/lessons`).subscribe({ next: (lessons) => this.lessons.set(lessons), error: () => this.loading.set(false) });
+    this.http.get<Dashboard>(`${API_URL}/dashboard`).subscribe({ next: (data) => { this.data.set(data); this.dashboardLoaded = true; this.finishLoading(); }, error: () => { this.error.set('Inicia sesión para consultar tu progreso.'); this.dashboardLoaded = true; this.finishLoading(); } });
+    this.http.get<Lesson[]>(`${API_URL}/lessons`).subscribe({ next: (lessons) => { this.lessons.set(lessons); this.lessonsLoaded = true; this.finishLoading(); }, error: () => { this.error.set('No se pudieron cargar las lecciones.'); this.lessonsLoaded = true; this.finishLoading(); } });
     effect(() => { if (this.session.token()) this.http.get<{ defaultLanguage: string }>(`${API_URL}/settings`).subscribe({ next: (settings) => this.defaultLanguage.set(settings.defaultLanguage), error: () => undefined }); });
     effect(() => { if (this.session.token()) this.http.get<{name: string}>(`${API_URL}/me`).subscribe({ next: (user) => this.name.set(user.name), error: () => undefined }); });
+  }
+
+  private finishLoading(): void {
+    if (this.dashboardLoaded && this.lessonsLoaded) this.loading.set(false);
   }
 }

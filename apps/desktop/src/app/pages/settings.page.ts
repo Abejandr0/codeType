@@ -37,7 +37,7 @@ interface Preferences {
         <label><span class="field-label">{{ text('Meta diaria de práctica', 'Daily practice goal') }}</span><span class="inline-setting"><input name="dailyGoalMinutes" type="number" min="5" max="240" step="5" [(ngModel)]="preferences.dailyGoalMinutes" /><span>{{ text('minutos', 'minutes') }}</span></span><small class="field-hint">{{ text('Entre 5 y 240 minutos al día.', 'Between 5 and 240 minutes per day.') }}</small></label>
         <label><span class="field-label">{{ text('Zona horaria', 'Time zone') }}</span><input name="timezone" [(ngModel)]="preferences.timezone" required maxlength="80" list="timezone-options" placeholder="America/Bogota" /><datalist id="timezone-options"><option value="America/Bogota"></option><option value="America/Mexico_City"></option><option value="America/Lima"></option><option value="America/Santiago"></option><option value="America/Argentina/Buenos_Aires"></option><option value="America/New_York"></option><option value="Europe/Madrid"></option><option value="Europe/London"></option><option value="UTC"></option></datalist><small class="field-hint">{{ text('Se usa para calcular tu racha, el reto diario y tu meta.', 'Used to calculate your streak, daily challenge, and goal.') }}</small></label>
         <label class="preference-toggle"><span class="preference-toggle-copy"><strong>{{ text('Sonidos al escribir', 'Typing sounds') }}</strong><small>{{ text('Un tono breve al acertar o equivocarte.', 'A brief tone for correct and incorrect keys.') }}</small></span><input name="sounds" type="checkbox" [(ngModel)]="preferences.sounds" /><span class="toggle-switch" aria-hidden="true"></span></label>
-        <label class="preference-toggle"><span class="preference-toggle-copy"><strong>{{ text('Notificaciones de práctica', 'Practice notifications') }}</strong><small>{{ text('Aviso al completar una lección.', 'Notify when a lesson is completed.') }}</small></span><input name="notifications" type="checkbox" [(ngModel)]="preferences.notifications" /><span class="toggle-switch" aria-hidden="true"></span></label>
+        <label class="preference-toggle"><span class="preference-toggle-copy"><strong>{{ text('Notificaciones de práctica', 'Practice notifications') }}</strong><small>{{ notificationHelp() }}</small></span><input name="notifications" type="checkbox" [ngModel]="preferences.notifications" (ngModelChange)="setNotificationsEnabled($event)" /><span class="toggle-switch" aria-hidden="true"></span></label>
         <div class="settings-actions"><button class="button primary" type="submit" [disabled]="saving()">{{ saving() ? text('Guardando…', 'Saving…') : text('Guardar ajustes', 'Save settings') }}</button></div>
       </form>
       @if (settingsMessage()) { <p class="inline-note" role="status">{{ settingsMessage() }}</p> }
@@ -79,6 +79,33 @@ export class SettingsPageComponent {
   constructor() { effect(() => { const token = this.session.token(); if (token && !this.loaded) { this.loaded = true; void this.load(); } }); }
 
   text(spanish: string, english: string): string { return this.session.language() === 'ES' ? spanish : english; }
+
+  notificationHelp(): string {
+    if (window.codeTypeDesktop?.notifyPracticeComplete) return this.text('Aviso al completar una lección en la app de escritorio.', 'Get a notification when you finish a lesson in the desktop app.');
+    return this.text('Recibirás un aviso del navegador al guardar una práctica.', 'Your browser will notify you when a practice session is saved.');
+  }
+
+  async setNotificationsEnabled(enabled: boolean): Promise<void> {
+    if (enabled && !window.codeTypeDesktop?.notifyPracticeComplete) {
+      if (!('Notification' in window)) {
+        this.preferences = { ...this.preferences, notifications: false };
+        this.settingsMessage.set(this.text('Este navegador no permite notificaciones.', 'This browser does not support notifications.'));
+        return;
+      }
+      let permission: NotificationPermission = Notification.permission;
+      if (permission === 'default') {
+        try { permission = await Notification.requestPermission(); }
+        catch { permission = 'denied'; }
+      }
+      if (permission !== 'granted') {
+        this.preferences = { ...this.preferences, notifications: false };
+        this.settingsMessage.set(this.text('Permite las notificaciones del navegador para activar esta opción.', 'Allow browser notifications to enable this option.'));
+        return;
+      }
+    }
+    this.preferences = { ...this.preferences, notifications: enabled };
+    this.settingsMessage.set('');
+  }
 
   setEditorFontSize(value: number | string): void {
     const size = Number(value);
@@ -153,5 +180,9 @@ export class SettingsPageComponent {
   cancelDelete(): void { this.confirmDelete.set(false); this.deleteConfirmation = ''; }
   private defaultPreferences(): Preferences { return { interfaceLanguage: 'ES', keyboardLayout: 'ES', defaultLanguage: 'Python', editorFontSize: 18, sounds: true, dailyGoalMinutes: 20, notifications: true, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Bogota' }; }
   private pickPreferences(value: Partial<Preferences>): Preferences { const defaults = this.defaultPreferences(); return { interfaceLanguage: value.interfaceLanguage ?? defaults.interfaceLanguage, keyboardLayout: value.keyboardLayout ?? defaults.keyboardLayout, defaultLanguage: value.defaultLanguage ?? defaults.defaultLanguage, editorFontSize: value.editorFontSize ?? defaults.editorFontSize, sounds: value.sounds ?? defaults.sounds, dailyGoalMinutes: value.dailyGoalMinutes ?? defaults.dailyGoalMinutes, notifications: value.notifications ?? defaults.notifications, timezone: value.timezone ?? defaults.timezone }; }
-  private errorMessage(error: unknown, fallback: string): string { return error instanceof HttpErrorResponse ? error.error?.error ?? fallback : fallback; }
+  private errorMessage(error: unknown, fallback: string): string {
+    if (!(error instanceof HttpErrorResponse)) return fallback;
+    const message = error.error?.error;
+    return message === 'Sal de la batalla antes de eliminar tu cuenta.' ? this.text(message, 'Leave your battle before deleting your account.') : message ?? fallback;
+  }
 }

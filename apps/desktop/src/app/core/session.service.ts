@@ -43,6 +43,10 @@ export class SessionService {
   }
 
   updateUser(user: SessionUser): void { this.currentUser.set(user); }
+  updateExperience(xp: number): void {
+    const user = this.currentUser();
+    if (user && Number.isFinite(xp)) this.currentUser.set({ ...user, xp });
+  }
 
   constructor(private readonly http: HttpClient) {}
 

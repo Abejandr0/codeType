@@ -51,13 +51,13 @@ Compose levanta Caddy, la interfaz Angular, Fastify, PostgreSQL y Redis. Caddy p
 - Dashboard guiado por el diseño adjunto, con racha según zona horaria, actividad reciente, avance de ruta, reto determinista por fecha y meta diaria calculada con intentos guardados.
 - Matchmaking Socket.IO con cola, presencia y salas compartidas por Redis entre procesos, fragmento compartido, cuenta regresiva, progreso validado, reconexión breve, abandono, chat predefinido, persistencia de resultado y Elo.
 - Solicitudes de amistad por correo, aceptación/rechazo, presencia online real y desafíos directos entre amistades conectadas.
-- Estadísticas de sesiones, gráfica WPM/precisión, mapa de calor construido con errores de pulsaciones persistidas y ranking de palabras/símbolos de código que más cuestan; recomendaciones deterministas basadas en ese historial.
+- Estadísticas agregadas por período, gráfica de las 200 sesiones más recientes, mapa de calor construido con errores de pulsaciones persistidas y ranking de palabras/símbolos de código que más cuestan; recomendaciones deterministas basadas en ese historial.
 - Página inicial pública con información del catálogo consultada al servidor, tipografía local para uso sin conexión, formularios con campos requeridos y requisitos visibles, sesiones que se pueden pausar y entrada por composición para teclas muertas/layouts ES.
-- Preferencias persistidas, edición real del perfil, interfaz ES/EN en el shell y todas las pantallas, distribución de teclado, tamaño de fuente, sonidos, meta diaria, notificaciones nativas en Electron, zona horaria, exportación JSON y borrado de cuenta/datos.
+- Preferencias persistidas, edición real del perfil, interfaz ES/EN en el shell y todas las pantallas, distribución de teclado, tamaño de fuente, sonidos, meta diaria, notificaciones en Electron y navegador, zona horaria, exportación JSON y borrado de cuenta/datos.
 
 ## Suposiciones
 
 - Los idiomas de la interfaz cubren el flujo principal de las pantallas; los fragmentos de código y los nombres propios de los lenguajes se mantienen originales.
 - La progresión desbloquea cada ruta cuando se aprueban las lecciones de ambos lenguajes de la ruta anterior.
-- Socket.IO y Redis respaldan presencia, cola e invitaciones entre procesos; cada batalla mantiene su estado autoritativo en el proceso que la crea y persiste el resultado final en PostgreSQL.
+- Socket.IO y Redis respaldan presencia, cola e invitaciones entre procesos. Si el proceso dueño de una batalla se reinicia, una concesión temporal permite limpiar la partida incompleta, liberar a sus jugadores y mostrarles que pueden buscar otro rival.
 - Los instaladores deben generarse en el sistema operativo destino para cumplir los requisitos de Electron Builder de cada plataforma.

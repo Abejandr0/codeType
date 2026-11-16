@@ -10,6 +10,7 @@ import { translate } from '../core/translation';
 
 interface StatsResponse {
   attempts: Array<{ id: string; createdAt: string; wpm: number; accuracy: number; durationMs: number; passed: boolean }>;
+  totalAttempts: number;
   commonErrors: Array<{ character: string; count: number }>;
   hardElements: Array<{ element: string; count: number }>;
   summary: { averageWpm: number; averageAccuracy: number; practiceMs: number; completed: number };
@@ -27,11 +28,11 @@ interface StatsResponse {
   @else if (error()) { <section class="card empty-state"><h3>{{ t('No se pudieron cargar las estadísticas') }}</h3><p>{{ t(error()) }}</p><button class="button secondary" (click)="reload()">{{ t('Reintentar') }}</button></section> }
   @else if (stats(); as data) {
     <div class="stats-summary-grid stats-summary">
-      <section class="card stat-card"><div class="stat-card-heading"><span class="stat-icon purple" aria-hidden="true">W</span><span class="muted">{{ t('Velocidad promedio') }}</span></div><strong>@if (data.attempts.length) { {{ data.summary.averageWpm | number:'1.0-0' }} } @else { — } <small>WPM</small></strong><span class="stat-foot">{{ data.attempts.length ? data.attempts.length + ' ' + t('sesiones') : t('Practica una sesión para ver este dato') }}</span></section>
-      <section class="card stat-card"><div class="stat-card-heading"><span class="stat-icon green" aria-hidden="true">%</span><span class="muted">{{ t('Precisión promedio') }}</span></div><strong>@if (data.attempts.length) { {{ data.summary.averageAccuracy | number:'1.0-1' }} } @else { — }<small>%</small></strong><span class="stat-foot">{{ t('En el período seleccionado') }}</span></section>
+      <section class="card stat-card"><div class="stat-card-heading"><span class="stat-icon purple" aria-hidden="true">W</span><span class="muted">{{ t('Velocidad promedio') }}</span></div><strong>@if (data.totalAttempts) { {{ data.summary.averageWpm | number:'1.0-0' }} } @else { — } <small>WPM</small></strong><span class="stat-foot">{{ data.totalAttempts ? data.totalAttempts + ' ' + t('sesiones') : t('Practica una sesión para ver este dato') }}</span></section>
+      <section class="card stat-card"><div class="stat-card-heading"><span class="stat-icon green" aria-hidden="true">%</span><span class="muted">{{ t('Precisión promedio') }}</span></div><strong>@if (data.totalAttempts) { {{ data.summary.averageAccuracy | number:'1.0-1' }} } @else { — }<small>%</small></strong><span class="stat-foot">{{ t('En el período seleccionado') }}</span></section>
       <section class="card stat-card"><div class="stat-card-heading"><span class="stat-icon amber" aria-hidden="true">min</span><span class="muted">{{ t('Tiempo de práctica') }}</span></div><strong>{{ Math.floor(data.summary.practiceMs / 60000) }} <small>{{ t('min') }}</small></strong><span class="stat-foot">{{ data.summary.completed }} {{ t('ejercicios aprobados') }}</span></section>
     </div>
-    <section class="card chart-card stats-chart"><div class="card-title-row"><div><h3>{{ t('Progreso de escritura') }}</h3><p class="muted">{{ t('WPM y precisión de cada intento guardado') }}</p></div></div>
+    <section class="card chart-card stats-chart"><div class="card-title-row"><div><h3>{{ t('Progreso de escritura') }}</h3><p class="muted">{{ t('WPM y precisión de cada intento guardado') }} @if (data.totalAttempts > data.attempts.length) { · {{ t('Se muestran las 200 sesiones más recientes del período.') }} }</p></div></div>
       @if (data.attempts.length) { <app-progress-chart [attempts]="data.attempts" /> } @else { <div class="chart-empty"><strong>{{ t('Aún no hay sesiones en este período') }}</strong><span>{{ t('Completa una práctica para crear tu gráfica con tus resultados reales.') }}</span><a class="button secondary" routerLink="/ejercicios">{{ t('Ir a ejercicios') }}</a></div> }
     </section>
     <div class="stats-grid stats-lower">

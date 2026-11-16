@@ -45,7 +45,16 @@ await app.register(rateLimit, {
 });
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const accessCookie = { httpOnly: true, sameSite: 'lax' as const, secure: process.env.NODE_ENV === 'production', path: '/' };
-app.decorate('authenticate', async (request: any, reply: any) => { try { await request.jwtVerify(); } catch { return reply.code(401).send({ error: 'Inicia sesión para continuar.' }); } });
+const revokedUserKey = (userId: string) => `codetype:auth:revoked:${userId}`;
+const accountDeletingUserKey = (userId: string) => `codetype:account:deleting:${userId}`;
+app.decorate('authenticate', async (request: any, reply: any) => {
+  try {
+    await request.jwtVerify();
+    if (await redis.exists(revokedUserKey(request.user.sub)) || await redis.exists(accountDeletingUserKey(request.user.sub))) return reply.code(401).send({ error: 'La sesión ya no está activa.' });
+  } catch {
+    return reply.code(401).send({ error: 'Inicia sesión para continuar.' });
+  }
+});
 app.get('/health', async () => ({ status: 'ok' }));
 app.post('/auth/register', { config: { rateLimit: { max: 10, timeWindow: '1 minute', groupId: 'auth-register' } } }, async (request, reply) => {
   const input = registerSchema.safeParse(request.body); if (!input.success) return reply.code(400).send({ error: input.error.issues[0]?.message });
@@ -79,7 +88,38 @@ app.patch('/me', { preHandler: (app as any).authenticate }, async (request:any,r
 app.get('/settings', { preHandler: (app as any).authenticate }, async (request: any, reply) => { const [settings,user] = await Promise.all([prisma.userSettings.findUnique({ where: { userId: request.user.sub } }),prisma.user.findUnique({where:{id:request.user.sub},select:{timezone:true}})]); if (!settings||!user) return reply.code(404).send({ error: 'No encontramos las preferencias de esta cuenta.' }); return {...settings,timezone:user.timezone}; });
 app.patch('/settings', { preHandler: (app as any).authenticate }, async (request: any, reply) => { const parsed = settingsSchema.safeParse(request.body); if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message }); const { timezone, ...settings } = parsed.data; let savedTimezone = timezone; if (timezone) { try { new Intl.DateTimeFormat('en-US',{timeZone:timezone}); } catch { return reply.code(400).send({error:'La zona horaria no es válida.'}); } const user = await prisma.user.update({ where: { id: request.user.sub }, data: { timezone }, select: { timezone: true } }); savedTimezone = user.timezone; } else { savedTimezone = (await prisma.user.findUnique({ where: { id: request.user.sub }, select: { timezone: true } }))?.timezone; } const saved = await prisma.userSettings.upsert({ where: { userId: request.user.sub }, create: { userId: request.user.sub, ...settings }, update: settings }); return { ...saved, timezone: savedTimezone }; });
 app.get('/me/export', { preHandler: (app as any).authenticate }, async (request: any) => { const user = await prisma.user.findUnique({ where: { id: request.user.sub }, include: { settings: true, lessonAttempts: { include: { lesson: true }, orderBy: { createdAt: 'desc' } }, keystrokes: { orderBy: { createdAt: 'desc' } }, battleEntries:{include:{battle:{include:{lesson:true}}}} } }); if (!user) return { error: 'Cuenta no encontrada.' }; const { passwordHash, ...safeUser } = user; return safeUser; });
-app.delete('/me', { preHandler: (app as any).authenticate }, async (request: any, reply) => { await prisma.$transaction([prisma.battle.updateMany({where:{winnerId:request.user.sub},data:{winnerId:null}}),prisma.user.delete({ where: { id: request.user.sub } })]); reply.clearCookie('refreshToken', { path: '/auth' }); return { ok: true }; });
+app.delete('/me', { preHandler: (app as any).authenticate }, async (request: any, reply) => {
+  const userId = request.user.sub as string;
+  const deletionToken = randomUUID();
+  const deleteReservation = accountDeletingUserKey(userId);
+  const reservation = await redis.eval(luaAccountDeleteReserve, 5, activeUsersKey, queueKey, queueMetaKey, queuedUsersKey, deleteReservation, userId, deletionToken) as string[];
+  const reserved = reservation[0];
+  if (reserved === 'active') return reply.code(409).send({ error: 'Sal de la batalla antes de eliminar tu cuenta.' });
+  if (reserved !== 'ok') return reply.code(409).send({ error: 'No se pudo reservar la cuenta para eliminarla. Inténtalo de nuevo.' });
+  if (reservation[1]) io.to(reservation[1]).emit('matchmaking:cancelled');
+
+  try {
+    const socketIds = await redis.smembers(`codetype:presence:${userId}`);
+    await redis.set(revokedUserKey(userId), '1', 'EX', 30 * 86400);
+    try {
+      await prisma.$transaction([
+        prisma.battle.updateMany({ where: { winnerId: userId }, data: { winnerId: null } }),
+        prisma.user.delete({ where: { id: userId } }),
+      ]);
+    } catch (error) {
+      await redis.del(revokedUserKey(userId));
+      throw error;
+    }
+    for (const socketId of socketIds) {
+      try { io.in(socketId).disconnectSockets(true); }
+      catch (error) { app.log.error(error, 'Could not disconnect a deleted account socket'); }
+    }
+    reply.clearCookie('refreshToken', { path: '/auth' });
+    return { ok: true };
+  } finally {
+    await redis.eval(luaAccountDeleteRelease, 1, deleteReservation, deletionToken);
+  }
+});
 app.get('/catalog/summary', async () => {
   const lessons = (await prisma.lesson.findMany({ select: { id: true, language: true, path: true, level: true, title: true, code: true } })).sort(compareLessons);
   return {
@@ -111,19 +151,23 @@ app.get('/dashboard', { preHandler: (app as any).authenticate }, async (request:
   });
   if (!user) return { error: 'Cuenta no encontrada.' };
 
-  const [attempts, lessons] = await Promise.all([
+  const dateKey = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: user.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  const today = dateKey(new Date());
+  const twoDaysAgo = new Date(Date.now() - 2 * 86400_000);
+  const [recentAttempts, lessons, practiceDays, recentPractice] = await Promise.all([
     prisma.lessonAttempt.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
+      take: 3,
       include: { lesson: { select: { id: true, title: true, language: true, path: true } } },
     }),
     prisma.lesson.findMany({ select: { id: true, title: true, language: true, path: true, level: true, code: true } }),
+    prisma.$queryRaw<Array<{ day: string }>>`SELECT DISTINCT TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE ${user.timezone}, 'YYYY-MM-DD') AS day FROM "LessonAttempt" WHERE "userId" = ${user.id}`,
+    prisma.lessonAttempt.findMany({ where: { userId: user.id, createdAt: { gte: twoDaysAgo } }, select: { createdAt: true, durationMs: true } }),
   ]);
   lessons.sort(compareLessons);
 
-  const dateKey = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: user.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
-  const practicedDays = new Set(attempts.map((attempt) => dateKey(attempt.createdAt)));
-  const today = dateKey(new Date());
+  const practicedDays = new Set(practiceDays.map((row) => row.day));
   const shiftDay = (key: string, delta: number) => {
     const [year, month, day] = key.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day + delta)).toISOString().slice(0, 10);
@@ -133,13 +177,14 @@ app.get('/dashboard', { preHandler: (app as any).authenticate }, async (request:
   while (cursor && practicedDays.has(cursor)) { streakDays++; cursor = shiftDay(cursor, -1); }
 
   const paths = [...new Set(lessons.map((lesson) => lesson.path))].sort(compareLearningPaths);
-  const passedLessonIds = new Set(attempts.filter((attempt) => attempt.passed).map((attempt) => attempt.lessonId));
+  const passedAttempts = await prisma.lessonAttempt.findMany({ where: { userId: user.id, passed: true }, select: { lessonId: true }, distinct: ['lessonId'] });
+  const passedLessonIds = new Set(passedAttempts.map((attempt) => attempt.lessonId));
   const firstIncomplete = paths.findIndex((path) => lessons.filter((lesson) => lesson.path === path).some((lesson) => !passedLessonIds.has(lesson.id)));
   const unlockedThrough = firstIncomplete < 0 ? paths.length - 1 : firstIncomplete;
   const challengeSeed = [...today].reduce((sum, character) => sum + character.charCodeAt(0), 0) % Math.max(1, lessons.length);
   const challengeOrder = [...lessons.slice(challengeSeed), ...lessons.slice(0, challengeSeed)];
   const dailyChallenge = challengeOrder.find((lesson) => paths.indexOf(lesson.path) <= unlockedThrough) ?? null;
-  const todayPracticeMs = attempts.filter((attempt) => dateKey(attempt.createdAt) === today).reduce((total, attempt) => total + attempt.durationMs, 0);
+  const todayPracticeMs = recentPractice.filter((attempt) => dateKey(attempt.createdAt) === today).reduce((total, attempt) => total + attempt.durationMs, 0);
   const xp = user.xp;
 
   return {
@@ -151,8 +196,8 @@ app.get('/dashboard', { preHandler: (app as any).authenticate }, async (request:
     rating: user.rating,
     dailyGoalMinutes: user.settings?.dailyGoalMinutes ?? 20,
     todayPracticeMs,
-    recentActivities: attempts.slice(0, 3).map((attempt) => ({ wpm: attempt.wpm, accuracy: attempt.accuracy, createdAt: attempt.createdAt, lesson: attempt.lesson })),
-    lastActivity: attempts[0] ? { wpm: attempts[0].wpm, accuracy: attempts[0].accuracy, createdAt: attempts[0].createdAt, lesson: attempts[0].lesson } : null,
+    recentActivities: recentAttempts.map((attempt) => ({ wpm: attempt.wpm, accuracy: attempt.accuracy, createdAt: attempt.createdAt, lesson: attempt.lesson })),
+    lastActivity: recentAttempts[0] ? { wpm: recentAttempts[0].wpm, accuracy: recentAttempts[0].accuracy, createdAt: recentAttempts[0].createdAt, lesson: recentAttempts[0].lesson } : null,
     dailyChallenge,
   };
 });
@@ -187,16 +232,37 @@ app.post('/lessons/complete', { preHandler: (app as any).authenticate }, async (
   const metrics = calculateMetrics(correctChars, errors, input.data.durationMs);
   if (metrics.wpm > 300) return reply.code(400).send({ error: 'La velocidad reportada supera el límite permitido.' });
   const passed = metrics.accuracy >= lesson.minAccuracy && cursor === lesson.code.length;
-  const attempt = await prisma.lessonAttempt.create({ data: { userId: request.user.sub, lessonId: lesson.id, wpm: metrics.wpm, accuracy: metrics.accuracy, errors: metrics.errors, durationMs: metrics.elapsedMs, passed } });
-  await prisma.keystroke.createMany({ data: checkedKeystrokes.map(k => ({ ...k, userId: request.user.sub })) });
-  if (passed) await prisma.user.update({ where: { id: request.user.sub }, data: { xp: { increment: Math.max(10, Math.round(metrics.wpm)) } } });
-  return { ...attempt, metrics, passed };
+  const saved = await prisma.$transaction(async (tx) => {
+    const attempt = await tx.lessonAttempt.create({ data: { userId: request.user.sub, lessonId: lesson.id, wpm: metrics.wpm, accuracy: metrics.accuracy, errors: metrics.errors, durationMs: metrics.elapsedMs, passed } });
+    await tx.keystroke.createMany({ data: checkedKeystrokes.map(k => ({ ...k, userId: request.user.sub })) });
+    const user = passed
+      ? await tx.user.update({ where: { id: request.user.sub }, data: { xp: { increment: Math.max(10, Math.round(metrics.wpm)) } }, select: { xp: true } })
+      : await tx.user.findUniqueOrThrow({ where: { id: request.user.sub }, select: { xp: true } });
+    return { attempt, xp: user.xp };
+  });
+  return { ...saved.attempt, metrics, passed, xp: saved.xp };
 });
-app.get('/stats', { preHandler: (app as any).authenticate }, async (request: any) => {
-  const days = Number((request.query as any)?.days ?? 0); const since = days ? new Date(Date.now() - days * 86400_000) : undefined;
+app.get('/stats', { preHandler: (app as any).authenticate }, async (request: any, reply) => {
+  const days = Number((request.query as any)?.days ?? 0);
+  if (!Number.isInteger(days) || days < 0 || days > 3650) return reply.code(400).send({ error: 'El período solicitado no es válido.' });
+  const since = days ? new Date(Date.now() - days * 86400_000) : undefined;
   const where = { userId: request.user.sub, ...(since ? { createdAt: { gte: since } } : {}) };
-  const [attempts, errors, elementErrors, user] = await Promise.all([prisma.lessonAttempt.findMany({ where, orderBy: { createdAt: 'asc' } }), prisma.keystroke.groupBy({ by: ['expected'], where: { userId: request.user.sub, correct: false, ...(since ? { createdAt: { gte: since } } : {}) }, _count: { expected: true }, orderBy: { _count: { expected: 'desc' } }, take: 100 }), prisma.keystroke.groupBy({ by: ['context'], where: { userId: request.user.sub, correct: false, context: { not: null }, ...(since ? { createdAt: { gte: since } } : {}) }, _count: { context: true }, orderBy: { _count: { context: 'desc' } }, take: 10 }), prisma.user.findUnique({ where: { id: request.user.sub }, select: { id: true } })]);
-  return { attempts, commonErrors: errors.map(e => ({ character: e.expected, count: e._count.expected })), hardElements: elementErrors.map(e => ({ element: e.context ?? 'Símbolo', count: e._count.context })), summary: { averageWpm: attempts.length ? attempts.reduce((s, a) => s + a.wpm, 0) / attempts.length : 0, averageAccuracy: attempts.length ? attempts.reduce((s, a) => s + a.accuracy, 0) / attempts.length : 0, practiceMs: attempts.reduce((s, a) => s + a.durationMs, 0), completed: attempts.filter(a => a.passed).length }, userId: user?.id };
+  const keystrokeWhere = { userId: request.user.sub, correct: false, ...(since ? { createdAt: { gte: since } } : {}) };
+  const [attempts, totals, totalAttempts, completed, errors, elementErrors] = await Promise.all([
+    prisma.lessonAttempt.findMany({ where, orderBy: { createdAt: 'desc' }, take: 200 }),
+    prisma.lessonAttempt.aggregate({ where, _avg: { wpm: true, accuracy: true }, _sum: { durationMs: true } }),
+    prisma.lessonAttempt.count({ where }),
+    prisma.lessonAttempt.count({ where: { ...where, passed: true } }),
+    prisma.keystroke.groupBy({ by: ['expected'], where: keystrokeWhere, _count: { expected: true }, orderBy: { _count: { expected: 'desc' } }, take: 100 }),
+    prisma.keystroke.groupBy({ by: ['context'], where: { ...keystrokeWhere, context: { not: null } }, _count: { context: true }, orderBy: { _count: { context: 'desc' } }, take: 10 }),
+  ]);
+  return {
+    attempts: attempts.reverse(),
+    totalAttempts,
+    commonErrors: errors.map(e => ({ character: e.expected, count: e._count.expected })),
+    hardElements: elementErrors.map(e => ({ element: e.context ?? 'Símbolo', count: e._count.context })),
+    summary: { averageWpm: totals._avg.wpm ?? 0, averageAccuracy: totals._avg.accuracy ?? 0, practiceMs: totals._sum.durationMs ?? 0, completed },
+  };
 });
 app.get('/recommendations', { preHandler: (app as any).authenticate }, async (request: any) => {
   const errors = await prisma.keystroke.groupBy({ by: ['expected'], where: { userId: request.user.sub, correct: false }, _count: { expected: true }, orderBy: { _count: { expected: 'desc' } }, take: 100 });
@@ -244,6 +310,10 @@ const queueKey='codetype:matchmaking:queue';
 const queueMetaKey='codetype:matchmaking:metadata';
 const socketMetaKey='codetype:sockets';
 const battleOwnersKey='codetype:battles:owners';
+const accountDeletionPrefix='codetype:account:deleting:';
+const serverLeasePrefix='codetype:servers:lease:';
+const serverNodesKey='codetype:servers:active-nodes';
+const battleSocketsKey=(battleId:string)=>`codetype:battles:sockets:${battleId}`;
 type BattlePlayer={userId:string;socketId:string;name:string;rating:number;cursor:number;errors:number;inputCount:number;disconnectedTimer?:NodeJS.Timeout};
 type BattleState={id:string;room:string;code:string;lessonId:string;lesson:{id:string;language:string;path:string;title:string;code:string};startsAt:number;players:Map<string,BattlePlayer>;finished:boolean};
 const activeBattleByUser=new Map<string,BattleState>();
@@ -251,10 +321,24 @@ const battleForSocket=new Map<string,BattleState>();
 function emitBattle(battle:BattleState,event:string,payload:unknown){for(const player of battle.players.values())io.to(player.socketId).emit(event,payload);}
 const luaQueueJoin=`
 local queue=KEYS[1];local metadata=KEYS[2];local users=KEYS[3];local active=KEYS[4];local sockets=KEYS[5]
-local socketId=ARGV[1];local userId=ARGV[2];local now=ARGV[3];local meta=ARGV[4];local reservationPrefix=ARGV[5]
+local socketId=ARGV[1];local userId=ARGV[2];local now=ARGV[3];local meta=ARGV[4];local reservationPrefix=ARGV[5];local leasePrefix=ARGV[6];local deletionPrefix=ARGV[7]
 if redis.call('HEXISTS',active,userId)==1 then return {'active'} end
 if redis.call('GET',reservationPrefix..userId) then return {'active'} end
-if redis.call('HEXISTS',users,userId)==1 then return {'queued'} end
+if redis.call('GET',deletionPrefix..userId) then return {'active'} end
+local previous=redis.call('HGET',users,userId)
+if previous then
+ if previous==socketId then return {'queued'} end
+ local previousMeta=redis.call('HGET',metadata,previous)
+ if previousMeta then
+  local previousData=cjson.decode(previousMeta)
+  if redis.call('GET',leasePrefix..tostring(previousData.nodeId or '')) then return {'queued'} end
+ else
+  local previousSocketMeta=redis.call('HGET',sockets,previous)
+  if previousSocketMeta then local previousData=cjson.decode(previousSocketMeta);if redis.call('GET',leasePrefix..tostring(previousData.nodeId or '')) then return {'queued'} end end
+ end
+ redis.call('ZREM',queue,previous);redis.call('HDEL',metadata,previous);redis.call('HDEL',sockets,previous);redis.call('HDEL',users,userId)
+ local presence='codetype:presence:'..userId;redis.call('SREM',presence,previous);if redis.call('SCARD',presence)==0 then redis.call('SREM','codetype:presence:users',userId) end
+end
 redis.call('ZADD',queue,now,socketId);redis.call('HSET',metadata,socketId,meta);redis.call('HSET',users,userId,socketId);redis.call('HSET',sockets,socketId,meta)
 local candidates=redis.call('ZRANGE',queue,0,100)
 for _,candidate in ipairs(candidates) do
@@ -262,19 +346,29 @@ for _,candidate in ipairs(candidates) do
   local otherMeta=redis.call('HGET',metadata,candidate)
   if otherMeta then
    local other=cjson.decode(otherMeta)
-   if other.userId~=userId and redis.call('HEXISTS',active,other.userId)==0 and not redis.call('GET',reservationPrefix..other.userId) then
+   if not redis.call('GET',leasePrefix..tostring(other.nodeId or '')) then
+    redis.call('ZREM',queue,candidate);redis.call('HDEL',metadata,candidate);redis.call('HDEL',sockets,candidate)
+    if redis.call('HGET',users,other.userId)==candidate then redis.call('HDEL',users,other.userId) end
+    local presence='codetype:presence:'..other.userId;redis.call('SREM',presence,candidate);if redis.call('SCARD',presence)==0 then redis.call('SREM','codetype:presence:users',other.userId) end
+   elseif other.userId~=userId and redis.call('HEXISTS',active,other.userId)==0 and not redis.call('GET',reservationPrefix..other.userId) and not redis.call('GET',deletionPrefix..other.userId) then
     redis.call('ZREM',queue,candidate,socketId);redis.call('HDEL',metadata,candidate,socketId);redis.call('HDEL',users,other.userId,userId)
     return {'matched',candidate,otherMeta}
    end
-  else redis.call('ZREM',queue,candidate) end
+  else
+   local socketMeta=redis.call('HGET',sockets,candidate)
+   if socketMeta then local parsed=cjson.decode(socketMeta);if redis.call('HGET',users,parsed.userId)==candidate then redis.call('HDEL',users,parsed.userId) end;redis.call('HDEL',sockets,candidate) end
+   redis.call('ZREM',queue,candidate)
+  end
  end
 end
 return {'queued'}`;
 const luaQueueRemove=`local meta=redis.call('HGET',KEYS[2],ARGV[1]);redis.call('ZREM',KEYS[1],ARGV[1]);redis.call('HDEL',KEYS[2],ARGV[1]);if meta then local parsed=cjson.decode(meta);if redis.call('HGET',KEYS[3],parsed.userId)==ARGV[1] then redis.call('HDEL',KEYS[3],parsed.userId) end end;return 1`;
-const luaBattleReserve=`local active=KEYS[1];local queued=KEYS[2];local oneKey=KEYS[3];local twoKey=KEYS[4];local one=ARGV[1];local two=ARGV[2];local token=ARGV[3];if redis.call('HEXISTS',active,one)==1 or redis.call('HEXISTS',active,two)==1 then return 'active' end;if redis.call('HEXISTS',queued,one)==1 or redis.call('HEXISTS',queued,two)==1 then return 'queued' end;if not redis.call('SET',oneKey,token,'NX','EX',60) then return 'active' end;if not redis.call('SET',twoKey,token,'NX','EX',60) then redis.call('DEL',oneKey);return 'active' end;return 'ok'`;
+const luaBattleReserve=`local active=KEYS[1];local queued=KEYS[2];local oneKey=KEYS[3];local twoKey=KEYS[4];local one=ARGV[1];local two=ARGV[2];local token=ARGV[3];local deletionPrefix=ARGV[4];if redis.call('HEXISTS',active,one)==1 or redis.call('HEXISTS',active,two)==1 or redis.call('GET',deletionPrefix..one) or redis.call('GET',deletionPrefix..two) then return 'active' end;if redis.call('HEXISTS',queued,one)==1 or redis.call('HEXISTS',queued,two)==1 then return 'queued' end;if not redis.call('SET',oneKey,token,'NX','EX',60) then return 'active' end;if not redis.call('SET',twoKey,token,'NX','EX',60) then redis.call('DEL',oneKey);return 'active' end;return 'ok'`;
+const luaAccountDeleteReserve=`local active=KEYS[1];local queue=KEYS[2];local metadata=KEYS[3];local queued=KEYS[4];local deleting=KEYS[5];local user=ARGV[1];local token=ARGV[2];if redis.call('HEXISTS',active,user)==1 then return {'active'} end;if redis.call('GET','codetype:battles:reservation:'..user) then return {'active'} end;if redis.call('GET',deleting) then return {'active'} end;local queuedSocket=redis.call('HGET',queued,user);if queuedSocket then redis.call('ZREM',queue,queuedSocket);redis.call('HDEL',metadata,queuedSocket);redis.call('HDEL',queued,user) end;if not redis.call('SET',deleting,token,'NX','EX',60) then return {'active'} end;return {'ok',queuedSocket or ''}`;
+const luaAccountDeleteRelease=`if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) end;return 0`;
 const luaBattleCommit=`local active=KEYS[1];local oneKey=KEYS[2];local twoKey=KEYS[3];local one=ARGV[1];local two=ARGV[2];local token=ARGV[3];local battle=ARGV[4];if redis.call('GET',oneKey)~=token or redis.call('GET',twoKey)~=token then return 'expired' end;redis.call('HSET',active,one,battle,two,battle);redis.call('DEL',oneKey,twoKey);return 'ok'`;
 const luaBattleRelease=`local active=KEYS[1];local oneKey=KEYS[2];local twoKey=KEYS[3];local one=ARGV[1];local two=ARGV[2];local token=ARGV[3];local battle=ARGV[4];for _,user in ipairs({one,two}) do if battle~='' and redis.call('HGET',active,user)==battle then redis.call('HDEL',active,user) end end;if redis.call('GET',oneKey)==token then redis.call('DEL',oneKey) end;if redis.call('GET',twoKey)==token then redis.call('DEL',twoKey) end;return 1`;
-io.use((socket,next)=>{try{const claims=app.jwt.verify(socket.handshake.auth.token) as {sub:string};socket.data.userId=claims.sub;next();}catch{next(new Error('No autorizado'));}});
+io.use((socket,next)=>{void (async()=>{try{const claims=app.jwt.verify(socket.handshake.auth.token) as {sub:string};if(await redis.exists(revokedUserKey(claims.sub))||await redis.exists(accountDeletingUserKey(claims.sub)))throw new Error('revoked');socket.data.userId=claims.sub;next();}catch{next(new Error('No autorizado'));}})();});
 function progressSnapshot(battle:BattleState){return [...battle.players.values()].map(player=>{const elapsed=Math.max(100,Date.now()-battle.startsAt)/60_000;const wpm=Math.round((player.cursor/5/elapsed)*10)/10;const attempted=player.cursor+player.errors;return {userId:player.userId,name:player.name,rating:player.rating,cursor:player.cursor,progress:Math.round(player.cursor/battle.code.length*100),wpm,accuracy:attempted?Math.round(player.cursor/attempted*1000)/10:0,errors:player.errors};});}
 async function finishBattle(battle:BattleState,winnerId:string|null,abandonedId:string|null=null){if(battle.finished)return;const lock=await redis.set(`codetype:battles:finished:${battle.id}`,'1','EX',120,'NX');if(!lock)return;battle.finished=true;const finished=await prisma.battle.findUnique({where:{id:battle.id},select:{finishedAt:true}});if(!finished||finished.finishedAt)return;const players=[...battle.players.values()];const ratings=await prisma.user.findMany({where:{id:{in:players.map(player=>player.userId)}},select:{id:true,rating:true}});const ratingMap=new Map(ratings.map(item=>[item.id,item.rating]));const updateData=players.map(player=>{const before=ratingMap.get(player.userId)??player.rating;const opponent=players.find(other=>other.userId!==player.userId);const opponentRating=opponent?ratingMap.get(opponent.userId)??opponent.rating:before;const expected=1/(1+10**((opponentRating-before)/400));const score=winnerId===player.userId?1:winnerId===null?0.5:0;const after=Math.max(100,Math.round(before+32*(score-expected)));const elapsed=Math.max(100,Date.now()-battle.startsAt)/60_000;const accuracy=player.cursor+player.errors?Math.round(player.cursor/(player.cursor+player.errors)*1000)/10:0;return {player,before,after,accuracy,wpm:Math.round((player.cursor/5/elapsed)*10)/10};});await prisma.$transaction(async tx=>{await tx.battle.update({where:{id:battle.id},data:{winnerId,finishedAt:new Date()}});for(const item of updateData){await tx.user.update({where:{id:item.player.userId},data:{rating:item.after}});await tx.battleParticipant.upsert({where:{battleId_userId:{battleId:battle.id,userId:item.player.userId}},create:{battleId:battle.id,userId:item.player.userId,wpm:item.wpm,accuracy:item.accuracy,errors:item.player.errors,ratingBefore:item.before,ratingAfter:item.after,abandoned:item.player.userId===abandonedId},update:{wpm:item.wpm,accuracy:item.accuracy,errors:item.player.errors,ratingBefore:item.before,ratingAfter:item.after,abandoned:item.player.userId===abandonedId}});}});emitBattle(battle,'battle:finished',{winnerId,players:updateData.map(item=>({userId:item.player.userId,name:item.player.name,ratingBefore:item.before,ratingAfter:item.after,cursor:item.player.cursor,progress:Math.round(item.player.cursor/battle.code.length*100),wpm:item.wpm,accuracy:item.accuracy,errors:item.player.errors,abandoned:item.player.userId===abandonedId}))});for(const player of players){activeBattleByUser.delete(player.userId);battleForSocket.delete(player.socketId);await redis.hdel(activeUsersKey,player.userId);}await Promise.all([redis.hdel(battleOwnersKey,battle.id),redis.del(`codetype:battles:sockets:${battle.id}`)]);}
 async function createMatch(firstId:string,secondId:string){
@@ -287,7 +381,7 @@ async function createMatch(firstId:string,secondId:string){
   const reservationToken=`creating:${randomUUID()}`;
   const firstReservation=battleReservationKey(userIds[0]!);
   const secondReservation=battleReservationKey(userIds[1]!);
-  const reservation=await redis.eval(luaBattleReserve,4,activeUsersKey,queuedUsersKey,firstReservation,secondReservation,userIds[0]!,userIds[1]!,reservationToken) as string;
+  const reservation=await redis.eval(luaBattleReserve,4,activeUsersKey,queuedUsersKey,firstReservation,secondReservation,userIds[0]!,userIds[1]!,reservationToken,accountDeletionPrefix) as string;
   if(reservation==='active')throw new Error('Uno de los jugadores ya está en un duelo.');
   if(reservation==='queued')throw new Error('Uno de los jugadores está buscando rival.');
   let battleId='';
@@ -349,7 +443,8 @@ io.on('battle:reconnect-forward',(targetNodeId:string,userId:string,socketId:str
 io.on('battle:disconnect-forward',(targetNodeId:string,userId:string)=>{if(targetNodeId===nodeId){const battle=activeBattleByUser.get(userId);if(battle)scheduleAbandon(battle,userId);}});
 io.on('battle:leave-forward',(targetNodeId:string,userId:string)=>{if(targetNodeId===nodeId){const battle=activeBattleByUser.get(userId);if(battle)void finishBattle(battle,[...battle.players.keys()].find(id=>id!==userId)??null,userId);}});
 io.on('connection',socket=>{const userId=String(socket.data.userId);void Promise.all([redis.sadd(`codetype:presence:${userId}`,socket.id),redis.sadd('codetype:presence:users',userId),redis.hset(socketMetaKey,socket.id,JSON.stringify({userId,nodeId}))]);void redis.hget(activeUsersKey,userId).then(async (battleId:string|null)=>{if(!battleId)return;const owner=await redis.hget(battleOwnersKey,battleId);if(owner===nodeId)await resumeBattle(userId,socket.id);else if(owner)io.serverSideEmit('battle:reconnect-forward',owner,userId,socket.id);});
-  socket.on('matchmaking:join',async()=>{try{const meta=JSON.stringify({userId,nodeId});const joined=await redis.eval(luaQueueJoin,5,queueKey,queueMetaKey,queuedUsersKey,activeUsersKey,socketMetaKey,socket.id,userId,String(Date.now()),meta,'codetype:battles:reservation:') as string[];if(joined[0]==='active'){socket.emit('matchmaking:error',{message:'Ya estás en una batalla.'});return;}if(joined[0]!=='matched'){socket.emit('matchmaking:queued');return;}try{await createMatch(joined[1]!,socket.id);}catch(error){app.log.error(error);const message=error instanceof Error?error.message:'No se pudo crear la sala. Inténtalo de nuevo.';socket.emit('matchmaking:error',{message});io.to(joined[1]!).emit('matchmaking:error',{message});}}catch(error){app.log.error(error);socket.emit('matchmaking:error',{message:'No se pudo entrar a la cola compartida.'});}});
+io.on('connection',socket=>{const userId=String(socket.data.userId);void Promise.all([redis.sadd(`codetype:presence:${userId}`,socket.id),redis.sadd('codetype:presence:users',userId),redis.hset(socketMetaKey,socket.id,JSON.stringify({userId,nodeId}))]);void redis.hget(activeUsersKey,userId).then(async (battleId:string|null)=>{if(!battleId)return;const owner=await redis.hget(battleOwnersKey,battleId);if(owner===nodeId)await resumeBattle(userId,socket.id);else if(owner)io.serverSideEmit('battle:reconnect-forward',owner,userId,socket.id);});
+  socket.on('matchmaking:join',async()=>{try{const meta=JSON.stringify({userId,nodeId});const joined=await redis.eval(luaQueueJoin,5,queueKey,queueMetaKey,queuedUsersKey,activeUsersKey,socketMetaKey,socket.id,userId,String(Date.now()),meta,'codetype:battles:reservation:',serverLeasePrefix,accountDeletionPrefix) as string[];if(joined[0]==='active'){socket.emit('matchmaking:error',{message:'Ya estás en una batalla.'});return;}if(joined[0]!=='matched'){socket.emit('matchmaking:queued');return;}try{await createMatch(joined[1]!,socket.id);}catch(error){app.log.error(error);const message=error instanceof Error?error.message:'No se pudo crear la sala. Inténtalo de nuevo.';socket.emit('matchmaking:error',{message});io.to(joined[1]!).emit('matchmaking:error',{message});}}catch(error){app.log.error(error);socket.emit('matchmaking:error',{message:'No se pudo entrar a la cola compartida.'});}});
   socket.on('matchmaking:cancel',async()=>{await redis.eval(luaQueueRemove,3,queueKey,queueMetaKey,queuedUsersKey,socket.id);socket.emit('matchmaking:cancelled');});
   socket.on('battle:invite',async(payload:{friendId?:unknown})=>{
     if(typeof payload?.friendId!=='string'||payload.friendId===userId){socket.emit('battle:invite:error',{message:'Selecciona una amistad válida.'});return;}
@@ -381,5 +476,79 @@ io.on('connection',socket=>{const userId=String(socket.data.userId);void Promise
   socket.on('battle:quick-chat',async(payload:{message?:unknown})=>{const allowed=['¡Buena suerte!','¡Buen ritmo!','¡Vamos!','¡Bien jugado!'];if(typeof payload?.message!=='string'||!allowed.includes(payload.message))return;const battle=battleForSocket.get(socket.id);const battleId=await redis.hget(activeUsersKey,userId);const name=battle?.players.get(userId)?.name??(await prisma.user.findUnique({where:{id:userId},select:{name:true}}))?.name;if(battleId&&name){const socketIds=await redis.hgetall(`codetype:battles:sockets:${battleId}`);for(const targetSocketId of Object.values(socketIds))io.to(targetSocketId).emit('battle:chat',{userId,name,message:payload.message});}});
   socket.on('disconnect',async()=>{const presenceKey=`codetype:presence:${userId}`;await redis.srem(presenceKey,socket.id);if((await redis.scard(presenceKey))===0)await redis.srem('codetype:presence:users',userId);const stored=await redis.hget(socketMetaKey,socket.id);if(stored&&JSON.parse(stored).userId===userId)await redis.hdel(socketMetaKey,socket.id);await redis.eval(luaQueueRemove,3,queueKey,queueMetaKey,queuedUsersKey,socket.id);const battleId=await redis.hget(activeUsersKey,userId);const owner=battleId?await redis.hget(battleOwnersKey,battleId):null;if(owner===nodeId){const battle=activeBattleByUser.get(userId);if(battle)scheduleAbandon(battle,userId);}else if(owner)io.serverSideEmit('battle:disconnect-forward',owner,userId);});
 });
+
+const luaQueuePrune=`local queue=KEYS[1];local metadata=KEYS[2];local users=KEYS[3];local sockets=KEYS[4];local leasePrefix=ARGV[1];local candidates=redis.call('ZRANGE',queue,0,499);local removed=0;for _,socket in ipairs(candidates) do local raw=redis.call('HGET',metadata,socket);if not raw then local socketMeta=redis.call('HGET',sockets,socket);if socketMeta then local parsed=cjson.decode(socketMeta);if redis.call('HGET',users,parsed.userId)==socket then redis.call('HDEL',users,parsed.userId) end;redis.call('HDEL',sockets,socket);local presence='codetype:presence:'..parsed.userId;redis.call('SREM',presence,socket);if redis.call('SCARD',presence)==0 then redis.call('SREM','codetype:presence:users',parsed.userId) end end;redis.call('ZREM',queue,socket);removed=removed+1 else local meta=cjson.decode(raw);if not redis.call('GET',leasePrefix..tostring(meta.nodeId or '')) then redis.call('ZREM',queue,socket);redis.call('HDEL',metadata,socket);redis.call('HDEL',sockets,socket);if redis.call('HGET',users,meta.userId)==socket then redis.call('HDEL',users,meta.userId) end;local presence='codetype:presence:'..meta.userId;redis.call('SREM',presence,socket);if redis.call('SCARD',presence)==0 then redis.call('SREM','codetype:presence:users',meta.userId) end;removed=removed+1 end end end;return removed`;
+
+async function cleanupStaleBattle(battleId:string):Promise<boolean>{
+  const lockKey=`codetype:battles:cleanup:${battleId}`;
+  const lock=await redis.set(lockKey,nodeId,'EX',60,'NX');
+  if(!lock)return false;
+  try{
+    const owner=await redis.hget(battleOwnersKey,battleId);
+    if(owner===nodeId||owner&&await redis.exists(`${serverLeasePrefix}${owner}`))return false;
+    const battle=await prisma.battle.findUnique({where:{id:battleId},select:{finishedAt:true,createdAt:true}});
+    if(!owner&&battle&&Date.now()-battle.createdAt.getTime()<60_000)return false;
+    const storedSockets=await redis.hgetall(battleSocketsKey(battleId));
+    const active=await redis.hgetall(activeUsersKey);
+    const users=new Set([...Object.keys(storedSockets),...Object.entries(active).filter(([,id])=>id===battleId).map(([userId])=>userId)]);
+    for(const userId of users){if(await redis.hget(activeUsersKey,userId)===battleId)await redis.hdel(activeUsersKey,userId);}
+    if(battle&&!battle.finishedAt)await prisma.battle.deleteMany({where:{id:battleId,finishedAt:null}});
+    for(const userId of users){for(const socketId of await redis.smembers(`codetype:presence:${userId}`))io.to(socketId).emit('battle:aborted',{message:'La batalla se interrumpió por un reinicio del servidor. Puedes volver a buscar rival.'});}
+    await Promise.all([redis.hdel(battleOwnersKey,battleId),redis.del(battleSocketsKey(battleId))]);
+    return true;
+  }finally{await redis.del(lockKey);}
+}
+
+async function cleanupDeadNode(deadNodeId:string):Promise<void>{
+  if(deadNodeId===nodeId)return;
+  const lockKey=`codetype:servers:cleanup:${deadNodeId}`;
+  if(!await redis.set(lockKey,nodeId,'EX',60,'NX'))return;
+  try{
+    if(await redis.exists(`${serverLeasePrefix}${deadNodeId}`))return;
+    const sockets=await redis.hgetall(socketMetaKey);
+    const battles=new Set<string>();
+    const users=new Set<string>();
+    for(const[socketId,raw]of Object.entries(sockets)){
+      let meta:{userId?:string;nodeId?:string};
+      try{meta=JSON.parse(raw) as {userId?:string;nodeId?:string};}catch{await redis.hdel(socketMetaKey,socketId);continue;}
+      if(meta.nodeId!==deadNodeId||!meta.userId)continue;
+      users.add(meta.userId);
+      await redis.eval(luaQueueRemove,3,queueKey,queueMetaKey,queuedUsersKey,socketId);
+      await redis.hdel(socketMetaKey,socketId);
+      await redis.srem(`codetype:presence:${meta.userId}`,socketId);
+    }
+    for(const userId of users)if(await redis.scard(`codetype:presence:${userId}`)===0)await redis.srem('codetype:presence:users',userId);
+    for(const[battleId,owner]of Object.entries(await redis.hgetall(battleOwnersKey)))if(owner===deadNodeId)battles.add(battleId);
+    for(const battleId of battles)await cleanupStaleBattle(battleId);
+    const active=await redis.hgetall(activeUsersKey);
+    for(const battleId of new Set(Object.values(active))){
+      const owner=await redis.hget(battleOwnersKey,battleId);
+      if(!owner&&await prisma.battle.findUnique({where:{id:battleId},select:{createdAt:true}}).then(row=>Boolean(row&&Date.now()-row.createdAt.getTime()>60_000)))await cleanupStaleBattle(battleId);
+    }
+    await redis.srem(serverNodesKey,deadNodeId);
+    await redis.del(`${serverLeasePrefix}${deadNodeId}`);
+  }finally{await redis.del(lockKey);}
+}
+
+async function sweepStaleState():Promise<void>{
+  try{
+    await redis.eval(luaQueuePrune,4,queueKey,queueMetaKey,queuedUsersKey,socketMetaKey,serverLeasePrefix);
+    for(const candidate of await redis.smembers(serverNodesKey))if(!await redis.exists(`${serverLeasePrefix}${candidate}`))await cleanupDeadNode(candidate);
+    const active=await redis.hgetall(activeUsersKey);
+    for(const battleId of new Set(Object.values(active))){
+      const owner=await redis.hget(battleOwnersKey,battleId);
+      if(!owner){const battle=await prisma.battle.findUnique({where:{id:battleId},select:{createdAt:true}});if(battle&&Date.now()-battle.createdAt.getTime()>60_000)await cleanupStaleBattle(battleId);}
+      else if(owner!==nodeId&&!await redis.exists(`${serverLeasePrefix}${owner}`))await cleanupDeadNode(owner);
+    }
+  }catch(error){app.log.error(error,'Could not clean stale matchmaking state');}
+}
+
+await redis.set(`${serverLeasePrefix}${nodeId}`,'1','EX',15);
+await redis.sadd(serverNodesKey,nodeId);
+const heartbeatTimer=setInterval(()=>{void Promise.all([redis.set(`${serverLeasePrefix}${nodeId}`,'1','EX',15),redis.sadd(serverNodesKey,nodeId)]).catch(error=>app.log.error(error,'Could not renew server lease'));},5_000);
+const staleStateTimer=setInterval(()=>{void sweepStaleState();},10_000);
+heartbeatTimer.unref();
+staleStateTimer.unref();
+app.addHook('onClose',async()=>{clearInterval(heartbeatTimer);clearInterval(staleStateTimer);await Promise.all([redis.del(`${serverLeasePrefix}${nodeId}`),redis.srem(serverNodesKey,nodeId)]);});
 const port = Number(process.env.PORT ?? 3001);
 await app.listen({ port, host: '0.0.0.0' });

@@ -112,6 +112,7 @@ export class BattlePageComponent {
       socket.on('battle:resume', (match: Match & { players: Player[] }) => { this.activateMatch(match, match.players); this.status.set('Batalla reconectada.'); });
       socket.on('battle:progress', (update: { players: Player[] }) => this.players.set(update.players));
       socket.on('battle:finished', (result: any) => { this.result.set(result); this.players.set(result.players); this.leaving.set(false); this.status.set(''); });
+      socket.on('battle:aborted', (notice: { message?: string }) => { this.match.set(null); this.players.set([]); this.result.set(null); this.messages.set([]); this.leaving.set(false); this.status.set(notice?.message ?? 'La batalla se interrumpió por un reinicio del servidor. Puedes volver a buscar rival.'); });
       socket.on('battle:input-rejected', (error: { message: string }) => this.status.set(error.message));
       socket.on('battle:chat', (message: { name: string; message: string }) => this.messages.update((messages) => [...messages, message]));
       socket.on('battle:invitation', (invitation: any) => this.showInvite(invitation));
