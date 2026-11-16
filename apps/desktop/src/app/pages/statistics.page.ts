@@ -11,6 +11,7 @@ import { translate } from '../core/translation';
 interface StatsResponse {
   attempts: Array<{ id: string; createdAt: string; wpm: number; accuracy: number; durationMs: number; passed: boolean }>;
   commonErrors: Array<{ character: string; count: number }>;
+  hardElements: Array<{ element: string; count: number }>;
   summary: { averageWpm: number; averageAccuracy: number; practiceMs: number; completed: number };
 }
 
@@ -32,8 +33,8 @@ interface StatsResponse {
       @if (data.attempts.length) { <app-progress-chart [attempts]="data.attempts" /> } @else { <div class="chart-empty">{{ t('Completa una práctica para ver tu progreso.') }}</div> }
     </section>
     <div class="stats-grid stats-lower">
-      <section class="card"><h3>{{ t('Mapa de errores del teclado') }}</h3><p class="muted">{{ t('La intensidad refleja tus errores guardados en el período.') }}</p><div class="heatmap">@for (row of keyboardRows; track $index) { <div class="heat-row">@for (character of row; track character) { <span [style.background-color]="heatColor(character)" [attr.title]="errorCount(character) + ' ' + t('errores')">{{ character }}</span> }</div> }</div></section>
-      <section class="card"><h3>{{ t('Caracteres que cuestan más') }}</h3>@if (data.commonErrors.length) { <div class="error-ranking">@for (item of data.commonErrors.slice(0, 10); track item.character) { <div><b>{{ readableCharacter(item.character) }}</b><span>{{ item.count }} {{ t('errores') }}</span></div> }</div> } @else { <p class="muted">{{ t('Todavía no hay errores registrados.') }}</p> }</section>
+      <section class="card"><h3>{{ t('Mapa de errores del teclado') }}</h3><p class="muted">{{ t('La intensidad refleja tus errores guardados en el período.') }}</p><div class="heatmap" role="group" [attr.aria-label]="t('Mapa de calor de errores por tecla')">@for (row of keyboardRows; track $index) { <div class="heat-row">@for (key of row; track key.label) { <span [class.heat-wide]="key.wide" [style.background-color]="heatColor(key.character)" [attr.title]="readableCharacter(key.character) + ': ' + errorCount(key.character) + ' ' + t('errores')">{{ key.label }}</span> }</div> }</div><div class="heatmap-legend"><span>{{ t('Sin errores') }}</span><i></i><span>{{ t('Más errores') }}</span></div></section>
+      <section class="card"><h3>{{ t('Palabras y elementos que cuestan más') }}</h3>@if (data.hardElements.length) { <div class="error-ranking">@for (item of data.hardElements.slice(0, 10); track item.element) { <div><b>{{ t(item.element) }}</b><span>{{ item.count }} {{ t('errores') }}</span></div> }</div> } @else { <p class="muted">{{ t('Todavía no hay errores registrados.') }}</p> }</section>
     </div>
     <section class="card recommendation-card"><div class="eyebrow">{{ t('ENTRENAMIENTO PERSONALIZADO') }}</div><h3>{{ t('Recomendación de práctica') }}</h3>
       @if (recommendationLoading()) { <p class="muted">{{ t('Analizando tus pulsaciones guardadas…') }}</p> }
@@ -60,7 +61,13 @@ export class StatisticsPageComponent {
   readonly recommendationError = signal('');
   readonly Math = Math;
   readonly filters = [{ value: '7', label: '7 días' }, { value: '30', label: '30 días' }, { value: 'all', label: 'Todo' }];
-  readonly keyboardRows = ['1234567890', 'qwertyuiop', 'asdfghjklñ', 'zxcvbnm'];
+  readonly keyboardRows = [
+    '1234567890-='.split('').map((character) => ({ label: character, character, wide: false })),
+    'qwertyuiop[]'.split('').map((character) => ({ label: character, character, wide: false })),
+    'asdfghjklñ'.split('').map((character) => ({ label: character, character, wide: false })),
+    'zxcvbnm,./'.split('').map((character) => ({ label: character, character, wide: false })),
+    [{ label: 'Tab', character: '\t', wide: true }, { label: 'Espacio', character: ' ', wide: true }, { label: 'Enter', character: '\n', wide: true }],
+  ];
   private statsRequest?: Subscription;
   private socialRequest?: Subscription;
 
@@ -88,5 +95,5 @@ export class StatisticsPageComponent {
   reload(): void { this.error.set(''); this.refreshKey.update((value) => value + 1); }
   errorCount(character: string): number { return this.stats()?.commonErrors.find((item) => item.character === character)?.count ?? 0; }
   readableCharacter(character: string): string { return character === ' ' ? this.t('Espacio') : character === '\n' ? this.t('Enter') : character === '\t' ? this.t('Tab') : `“${character}”`; }
-  heatColor(character: string): string { const count = this.errorCount(character); const counts = this.stats()?.commonErrors.map((item) => item.count) ?? []; const max = Math.max(1, ...counts); const opacity = count ? 0.16 + 0.7 * count / max : 0; return `rgba(255, 138, 138, ${opacity})`; }
+  heatColor(character: string): string { const count = this.errorCount(character); const counts = this.stats()?.commonErrors.map((item) => item.count) ?? []; const max = Math.max(1, ...counts); const opacity = count ? 0.16 + 0.7 * count / max : 0; return count ? `rgba(255, 138, 138, ${opacity})` : '#252733'; }
 }

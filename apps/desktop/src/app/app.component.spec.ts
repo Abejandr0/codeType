@@ -19,18 +19,19 @@ describe('AppComponent', () => {
 
   afterEach(() => http.verify());
 
-  it('renders navigation and restores the session from the refresh cookie', () => {
+  it('shows the public outlet after the refresh cookie has no session', async () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
 
     const refresh = http.expectOne('http://localhost:3001/auth/refresh');
     expect(refresh.request.withCredentials).toBe(true);
     refresh.flush({}, { status: 401, statusText: 'Unauthorized' });
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const root: HTMLElement = fixture.nativeElement;
-    expect(root.textContent).toContain('CodeType');
-    expect(root.textContent).toContain('Dashboard');
-    expect(root.querySelectorAll('nav a').length).toBe(5);
+    expect(root.querySelector('.public-content')).not.toBeNull();
+    expect(root.querySelector('.sidebar')).toBeNull();
+    expect(root.querySelector('app-auth-panel')).toBeNull();
   });
 });

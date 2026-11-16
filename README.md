@@ -33,12 +33,13 @@ Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:300
 
 - Registro e inicio de sesión con argon2, access JWT y refresh JWT rotatorio en cookie httpOnly.
 - PostgreSQL/Prisma con migraciones para usuarios, ajustes, lecciones, intentos, pulsaciones y batallas.
-- Dieciséis lecciones sembradas: dos por lenguaje y ruta para Python y JavaScript en Introducción, Condicionales, Bucles y Funciones; progreso bloqueado por requisitos de aprobación.
+- Cuarenta lecciones sembradas: cinco por lenguaje y ruta para Python y JavaScript en Introducción, Condicionales, Bucles y Funciones; explicaciones específicas y progreso bloqueado por requisitos de aprobación.
 - Práctica carácter a carácter, Enter, Tab, autoindentado, composición de teclas muertas, pegado bloqueado, métrica WPM/precisión y almacenamiento de cada pulsación validada en servidor.
 - Dashboard guiado por el diseño adjunto, con racha según zona horaria, actividad reciente, avance de ruta, reto determinista por fecha y meta diaria calculada con intentos guardados.
 - Matchmaking Socket.IO con cola, presencia y salas compartidas por Redis entre procesos, fragmento compartido, cuenta regresiva, progreso validado, reconexión breve, abandono, chat predefinido, persistencia de resultado y Elo.
 - Solicitudes de amistad por correo, aceptación/rechazo, presencia online real y desafíos directos entre amistades conectadas.
-- Estadísticas de sesiones, gráfica WPM/precisión, mapa de errores por tecla y recomendación determinista basada en errores persistidos.
+- Estadísticas de sesiones, gráfica WPM/precisión, mapa de calor construido con errores de pulsaciones persistidas y ranking de palabras/símbolos de código que más cuestan; recomendaciones deterministas basadas en ese historial.
+- Página inicial pública con información del catálogo consultada al servidor, tipografía local para uso sin conexión, formularios con campos requeridos y requisitos visibles, práctica pausables y entrada por composición para teclas muertas/layouts ES.
 - Preferencias persistidas, edición real del perfil, interfaz ES/EN en el shell y todas las pantallas, distribución de teclado, tamaño de fuente, sonidos, meta diaria, notificaciones nativas en Electron, zona horaria, exportación JSON y borrado de cuenta/datos.
 
 ## Suposiciones

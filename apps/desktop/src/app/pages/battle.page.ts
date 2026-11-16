@@ -13,12 +13,12 @@ interface Player { userId: string; name: string; rating: number; ratingAfter?: n
 
 @Component({ standalone: true, imports: [FormsModule], template: `
   <header class="page-heading"><div><div class="eyebrow">{{ t('COMPITE Y APRENDE') }}</div><h1>{{ t('Batalla de Código 1v1') }}</h1><p>{{ t('Mide tu velocidad en tiempo real contra otra persona.') }}</p></div></header>
-  @if (!match()) { <section class="card battle-panel"><div class="battle-swords">⚔</div><h2>{{ t('¿Listo para el duelo?') }}</h2><p>{{ t('Te emparejaremos en una cola real. Ambos competirán con el mismo fragmento de código.') }}</p><button class="button primary" (click)="toggleQueue()" [disabled]="!session.token() || !socketConnected()">{{ queued() ? t('Cancelar búsqueda') : socketConnected() ? t('Buscar oponente') : t('Conectando…') }} ›</button>@if (status()) { <p class="inline-note" role="status">{{ t(status()) }}</p> }<div class="battle-features"><span>◷ {{ t('Cola en vivo') }}</span><span>✓ {{ t('Progreso validado') }}</span><span>★ {{ t('Rating Elo') }}</span></div></section> }
+  @if (!match()) { <section class="card battle-panel"><div class="battle-swords" aria-hidden="true">VS</div><h2>{{ t('¿Listo para el duelo?') }}</h2><p>{{ t('Te emparejaremos en una cola real. Ambos competirán con el mismo fragmento de código.') }}</p><button class="button primary" (click)="toggleQueue()" [disabled]="!session.token() || !socketConnected()">{{ queued() ? t('Cancelar búsqueda') : socketConnected() ? t('Buscar oponente') : t('Conectando…') }} ›</button>@if (status()) { <p class="inline-note" role="status">{{ t(status()) }}</p> }<div class="battle-features"><span>{{ t('Cola en vivo') }}</span><span>{{ t('Progreso validado') }}</span><span>{{ t('Rating Elo') }}</span></div></section> }
   @if (match(); as battle) { <section class="card battle-live"><div class="card-top"><div><div class="eyebrow">{{ t('BATALLA EN VIVO') }}</div><h2>{{ result() ? t(resultHeading()) : countdown() ? t('La batalla comienza en') + ' ' + countdown() : t('Escribe el fragmento para competir') }}</h2></div>@if (!result()) { <button class="button secondary" (click)="leaveBattle()" [disabled]="leaving()">{{ leaving() ? t('Saliendo…') : t('Salir') }}</button> } @else { <button class="button secondary" (click)="closeResult()">{{ t('Cerrar') }}</button> }</div>
-    <p class="battle-instruction">{{ t(battle.lesson.title) }} · {{ battle.lesson.language }}</p>
+    <p class="battle-instruction">{{ t(battle.lesson.title) }} · {{ t(battle.lesson.path) }} · {{ battle.lesson.language }} · {{ t('Sesión del catálogo común') }}</p>
     <div class="battle-scoreboard">@for (player of players(); track player.userId) { <div class="battle-player"><div class="battle-player-top"><strong>{{ player.name }}{{ player.userId === session.user()?.id ? ' (' + t('tú') + ')' : '' }}</strong><span>{{ t('Rating') }} {{ player.ratingAfter ?? player.rating }}</span></div><div class="battle-player-stats"><span>{{ player.wpm }} WPM</span><span>{{ player.accuracy }}% {{ t('precisión') }}</span><span>{{ player.errors }} {{ t('errores') }}</span></div><div class="progress-track" role="progressbar" [attr.aria-valuenow]="player.progress" aria-valuemin="0" aria-valuemax="100"><span [style.width.%]="player.progress"></span></div></div> }</div>
     <div class="battle-code" [attr.aria-label]="t('Fragmento de código compartido')"><pre>@for (character of battle.lesson.code.split(''); track $index) { <span [class.char-done]="$index < userProgressChars()">{{ character }}</span> }</pre></div>
-    @if (!result()) { <textarea #input class="typing-capture" [attr.aria-label]="t('Escribe el fragmento del duelo')" (keydown)="onKeyDown($event)" (beforeinput)="onBeforeInput($event)" (input)="clearInput($event)" (paste)="$event.preventDefault()" (compositionend)="onCompositionEnd($event)" [disabled]="countdown() > 0 || leaving()" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea> }
+    @if (!result()) { <textarea #input class="typing-capture" [attr.aria-label]="t('Escribe el fragmento del duelo')" (keydown)="onKeyDown($event)" (beforeinput)="onBeforeInput($event)" (input)="clearInput($event)" (paste)="$event.preventDefault()" (compositionstart)="onCompositionStart()" (compositionend)="onCompositionEnd($event)" [disabled]="countdown() > 0 || leaving()" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea> }
     @if (messages().length) { <div class="battle-chat" aria-live="polite">@for (message of messages(); track $index) { <span><b>{{ message.name }}:</b> {{ t(message.message) }}</span> }</div> }
     <div class="quick-chat">@for (message of quickMessages; track message) { <button type="button" (click)="sendQuickMessage(message)" [disabled]="!socket?.connected">{{ t(message) }}</button> }</div>@if (status()) { <p class="inline-note" role="status">{{ t(status()) }}</p> }
   </section> }
@@ -62,6 +62,8 @@ export class BattlePageComponent {
   readonly onlineFriends = () => this.friends().filter((friend) => friend.online);
   readonly userProgressChars = () => Math.floor((this.players().find((player) => player.userId === this.session.user()?.id)?.progress ?? 0) * (this.match()?.lesson.code.length ?? 0) / 100);
   private deadKeyPending = false;
+  private composing = false;
+  private compositionCommitted: { text: string; until: number } | null = null;
   private inviteTimer?: ReturnType<typeof setTimeout>;
   private cachedEmail = '';
   get email(): string { return this.cachedEmail; }
@@ -129,18 +131,28 @@ export class BattlePageComponent {
 
   onKeyDown(event: KeyboardEvent): void {
     if (this.countdown() > 0 || this.result()) { event.preventDefault(); return; }
-    if (event.key === 'Enter' || event.key === 'Tab' || event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); this.submitKey(event.key); this.deadKeyPending = false; }
-    else if (event.key === 'Dead') this.deadKeyPending = true;
-    else if (event.key.length > 1 && !['Shift', 'Control', 'Alt', 'Meta', 'Process'].includes(event.key)) event.preventDefault();
+    if (event.isComposing || this.composing) return;
+    if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); this.submitKey(event.key); this.deadKeyPending = false; return; }
+    if (event.key === 'Dead') { this.deadKeyPending = true; return; }
+    // Let beforeinput deliver the final character. keydown alone loses dead-key
+    // composition and may send the unaccented base key to the server.
+    if (event.key.length === 1) return;
+    if (event.key.length > 1 && !['Shift', 'Control', 'Alt', 'Meta', 'Process'].includes(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) event.preventDefault();
   }
-  onBeforeInput(event: InputEvent): void { if (event.data && (event.inputType === 'insertText' || this.deadKeyPending)) { event.preventDefault(); this.deadKeyPending = false; this.submitKey(event.data); } else if (event.inputType.startsWith('insertFrom')) event.preventDefault(); }
-  onCompositionEnd(event: CompositionEvent): void { if (event.data) this.submitKey(event.data); }
+  onBeforeInput(event: InputEvent): void {
+    if (event.inputType === 'insertCompositionText' || event.inputType === 'insertFromComposition' || this.composing) return;
+    if (event.inputType.startsWith('insertFrom')) { event.preventDefault(); this.deadKeyPending = false; return; }
+    if (this.compositionCommitted && Date.now() < this.compositionCommitted.until && event.data === this.compositionCommitted.text && event.inputType === 'insertText') { event.preventDefault(); this.compositionCommitted = null; return; }
+    if (event.data && (event.inputType === 'insertText' || this.deadKeyPending)) { event.preventDefault(); this.deadKeyPending = false; this.submitKey(event.data); }
+  }
+  onCompositionStart(): void { this.composing = true; }
+  onCompositionEnd(event: CompositionEvent): void { this.composing = false; if (event.data) { this.submitKey(event.data); this.compositionCommitted = { text: event.data, until: Date.now() + 500 }; } if (event.target instanceof HTMLTextAreaElement) event.target.value = ''; }
   private submitKey(key: string): void {
     this.socket?.emit('battle:key', { key }, (ack: { handled?: boolean; players?: Player[] }) => {
       if (ack?.handled && ack.players) this.players.set(ack.players);
     });
   }
-  clearInput(event: Event): void { (event.target as HTMLTextAreaElement).value = ''; }
+  clearInput(event: Event): void { if (!this.composing) (event.target as HTMLTextAreaElement).value = ''; }
   sendQuickMessage(message: string): void { this.socket?.emit('battle:quick-chat', { message }); }
 
   invite(friend: Friend): void { this.socket?.emit('battle:invite', { friendId: friend.id }); this.socialNotice.set('Enviando invitación…'); }
