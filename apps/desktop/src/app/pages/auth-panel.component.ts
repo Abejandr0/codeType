@@ -83,8 +83,15 @@ export class AuthPanelComponent {
   t(text: string): string { return translate(text, this.session.language()); }
 
   toggle(): void {
-    this.mode.update((mode) => mode === 'register' ? 'login' : 'register');
+    const nextMode = this.mode() === 'register' ? 'login' : 'register';
+    this.mode.set(nextMode);
     this.message.set('');
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { mode: nextMode },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   async submit(): Promise<void> {
@@ -101,8 +108,7 @@ export class AuthPanelComponent {
       await this.session.authenticate(mode, parsed.data);
       await this.router.navigateByUrl(this.postAuthUrl());
     } catch (error) {
-      const response = error as HttpErrorResponse;
-      this.message.set(response.error?.error ?? 'No se pudo completar el inicio de sesión.');
+      this.message.set(this.authenticationError(error));
     } finally {
       this.loading.set(false);
     }
@@ -113,6 +119,12 @@ export class AuthPanelComponent {
     if (field === 'email') return 'Escribe un correo electrónico válido.';
     if (field === 'password') return this.mode() === 'register' ? 'La contraseña debe tener entre 10 y 128 caracteres.' : 'La contraseña es obligatoria.';
     return 'Revisa los datos del formulario.';
+  }
+
+  private authenticationError(error: unknown): string {
+    if (!(error instanceof HttpErrorResponse)) return 'No se pudo completar el inicio de sesión.';
+    if (error.status === 429) return 'Demasiados intentos recientes. Espera un minuto y vuelve a intentarlo.';
+    return error.error?.error ?? error.error?.message ?? 'No se pudo completar el inicio de sesión.';
   }
 
   private postAuthUrl(): string {

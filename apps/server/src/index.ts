@@ -21,7 +21,10 @@ const battleReservationKey=(userId:string)=>`codetype:battles:reservation:${user
 redis.on('error',(error:Error)=>console.error('Redis error:',error.message));
 if(process.env.NODE_ENV==='production'&&!process.env.REDIS_URL)throw new Error('Configura REDIS_URL para compartir cola, presencia y salas de batalla.');
 const { sign: signJwt, verify: verifyJwt } = jsonwebtoken;
-const app = Fastify({ logger: true });
+// In production requests reach the API through Caddy and Nginx. Trust the
+// forwarded client address so per-IP rate limits do not group every visitor
+// under the web container's address. The API is only exposed inside Compose.
+const app = Fastify({ logger: true, trustProxy: process.env.NODE_ENV === 'production' });
 const accessSecret = process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret-change-before-deploy-000000';
 const refreshSecret = process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret-change-before-deploy-000000';
 if (process.env.NODE_ENV === 'production' && (accessSecret.length < 32 || refreshSecret.length < 32 || accessSecret === refreshSecret)) throw new Error('Configura dos secretos JWT distintos de al menos 32 caracteres.');
