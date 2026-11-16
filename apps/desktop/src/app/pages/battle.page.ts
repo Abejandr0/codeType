@@ -79,9 +79,26 @@ export class BattlePageComponent {
   set email(value: string) { this.cachedEmail = value; }
 
   constructor() {
-    effect((onCleanup) => {
+    effect(() => {
       const token = this.session.token();
-      if (!token) return;
+      if (!token) {
+        const socket = this.socket;
+        this.socket = undefined;
+        this.socketConnected.set(false);
+        this.queued.set(false);
+        socket?.disconnect();
+        return;
+      }
+      if (this.socket) {
+        // Access-token renewal should update future reconnects without tearing
+        // down a live socket and briefly abandoning an in-progress duel.
+        this.socket.auth = { token };
+        if (!this.socket.connected) {
+          this.connecting.set(true);
+          this.socket.connect();
+        }
+        return;
+      }
       this.connecting.set(true);
       const socket = io(API_URL || undefined, { auth: { token }, transports: ['websocket'] });
       this.socket = socket;
@@ -101,7 +118,12 @@ export class BattlePageComponent {
       socket.on('battle:invite:sent', () => this.socialNotice.set('Invitación enviada.'));
       socket.on('battle:invite:declined', () => this.socialNotice.set('La invitación fue rechazada.'));
       socket.on('battle:invite:error', (error: { message: string }) => this.socialNotice.set(error.message));
-      onCleanup(() => { socket.disconnect(); this.socketConnected.set(false); if (this.socket === socket) this.socket = undefined; });
+    });
+    this.destroyRef.onDestroy(() => {
+      if (this.inviteTimer) clearTimeout(this.inviteTimer);
+      this.socket?.disconnect();
+      this.socket = undefined;
+      this.socketConnected.set(false);
     });
     interval(150).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       const start = this.match()?.startsAt;
