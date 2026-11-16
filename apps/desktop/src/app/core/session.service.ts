@@ -15,7 +15,11 @@ interface SessionResponse {
   user: SessionUser;
 }
 
-export const API_URL = 'http://localhost:3001';
+declare global {
+  interface Window { CODETYPE_CONFIG?: { apiUrl?: string }; }
+}
+
+export const API_URL = window.CODETYPE_CONFIG?.apiUrl ?? 'http://localhost:3001';
 
 @Injectable({ providedIn: 'root' })
 export class SessionService {

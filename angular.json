@@ -17,7 +17,7 @@
             "browser": "apps/desktop/src/main.ts",
             "tsConfig": "apps/desktop/tsconfig.app.json",
             "styles": ["apps/desktop/src/ui/styles.css"],
-            "assets": [],
+            "assets": [{ "glob": "**/*", "input": "apps/desktop/public", "output": "/" }],
             "allowedCommonJsDependencies": ["prismjs", "prismjs/components/prism-python", "prismjs/components/prism-javascript"]
           },
           "configurations": {

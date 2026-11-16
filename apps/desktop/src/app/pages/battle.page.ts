@@ -74,7 +74,7 @@ export class BattlePageComponent {
       const token = this.session.token();
       if (!token) return;
       this.connecting.set(true);
-      const socket = io(API_URL, { auth: { token }, transports: ['websocket'] });
+      const socket = io(API_URL || undefined, { auth: { token }, transports: ['websocket'] });
       this.socket = socket;
       socket.on('connect', () => { this.socketConnected.set(true); this.connecting.set(false); this.status.set('Conectado a matchmaking.'); });
       socket.on('disconnect', () => { this.socketConnected.set(false); this.queued.set(false); this.connecting.set(true); this.status.set('Conexión interrumpida. Reconectando…'); });

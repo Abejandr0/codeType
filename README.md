@@ -18,6 +18,18 @@ Monorepo TypeScript para aprender código mediante mecanografía. El renderer de
 
 Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:3001`. `npm run dev` abre el renderer Angular y la ventana Electron. En Linux, el lanzador usa el sandbox de namespaces de Chromium cuando está disponible. Si la distribución bloquea namespaces y no permite configurar el helper SUID sin privilegios, el modo local de desarrollo aplica `--no-sandbox` como alternativa; muestra un aviso y limita el servidor Angular a `127.0.0.1`. `contextIsolation` y `nodeIntegration: false` se mantienen, y los paquetes de producción no usan este lanzador. PostgreSQL se publica en el puerto local `5433`, Redis en `6380`; ambos conservan sus datos en volúmenes de Docker.
 
+## Despliegue web con Docker
+
+Compose levanta la interfaz Angular, Fastify, PostgreSQL y Redis. Solo publica el puerto web; API, base de datos y Redis quedan dentro de la red privada de Docker. Al iniciar, la API aplica migraciones y siembra el catálogo idempotente. PostgreSQL y Redis conservan sus datos en volúmenes.
+
+1. Copia `.env.example` a `.env`.
+2. Cambia `POSTGRES_PASSWORD` por una contraseña larga URL-safe y define dos secretos JWT aleatorios, distintos y de al menos 32 caracteres.
+3. Para un dominio público, cambia `CLIENT_ORIGIN` por su origen HTTPS y coloca un proxy TLS delante del puerto configurado en `CODETYPE_WEB_PORT`.
+4. Ejecuta `npm run deploy:up` y abre `http://localhost:8080` (o el puerto que configuraste).
+5. Consulta los registros con `npm run deploy:logs`; para detener los servicios usa `npm run deploy:down`.
+
+`CODETYPE_API_URL` queda vacío para que la web use el mismo origen y Nginx reenvíe API y Socket.IO. La interfaz Electron conserva `http://localhost:3001`; su flujo local no cambia.
+
 ## Comandos
 
 - `npm run dev`: servidor y app Electron de desarrollo; Angular CLI sirve el renderer en `http://localhost:5173`.
@@ -25,6 +37,7 @@ Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:300
 - `npm test`: Vitest para el motor de tipeo y las métricas compartidas.
 - `npm run test:e2e`: Playwright (requiere PostgreSQL migrado y sembrado, `.env` y `npx playwright install chromium`).
 - `npm run package:linux`, `npm run package:mac`, `npm run package:windows`: genera instaladores Electron en `apps/desktop/release` (macOS y Windows se empaquetan en su plataforma correspondiente).
+- `npm run deploy:up`, `npm run deploy:logs`, `npm run deploy:down`: construye y opera el despliegue web en Docker Compose.
 - `npm run db:migrate`: migraciones Prisma.
 - `npm run seed`: seed idempotente de ejercicios Python/JavaScript.
 - `docs/branching.md`: ramas funcionales y reglas de trazabilidad; `docs/architecture/angular-adr.md`: decisión de framework.
@@ -39,7 +52,7 @@ Angular CLI estará en `http://localhost:5173`, Fastify en `http://localhost:300
 - Matchmaking Socket.IO con cola, presencia y salas compartidas por Redis entre procesos, fragmento compartido, cuenta regresiva, progreso validado, reconexión breve, abandono, chat predefinido, persistencia de resultado y Elo.
 - Solicitudes de amistad por correo, aceptación/rechazo, presencia online real y desafíos directos entre amistades conectadas.
 - Estadísticas de sesiones, gráfica WPM/precisión, mapa de calor construido con errores de pulsaciones persistidas y ranking de palabras/símbolos de código que más cuestan; recomendaciones deterministas basadas en ese historial.
-- Página inicial pública con información del catálogo consultada al servidor, tipografía local para uso sin conexión, formularios con campos requeridos y requisitos visibles, práctica pausables y entrada por composición para teclas muertas/layouts ES.
+- Página inicial pública con información del catálogo consultada al servidor, tipografía local para uso sin conexión, formularios con campos requeridos y requisitos visibles, sesiones que se pueden pausar y entrada por composición para teclas muertas/layouts ES.
 - Preferencias persistidas, edición real del perfil, interfaz ES/EN en el shell y todas las pantallas, distribución de teclado, tamaño de fuente, sonidos, meta diaria, notificaciones nativas en Electron, zona horaria, exportación JSON y borrado de cuenta/datos.
 
 ## Suposiciones

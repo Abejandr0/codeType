@@ -1,0 +1,12 @@
+.git
+.env
+.env.*.local
+node_modules
+**/node_modules
+**/dist
+**/release
+.angular
+coverage
+playwright-report
+test-results
+*.tsbuildinfo
