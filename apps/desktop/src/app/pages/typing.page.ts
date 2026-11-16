@@ -1,9 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, DestroyRef, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { calculateMetrics, typeCharacter, typingKeyInstruction } from '@codetype/shared';
+import { calculateMetrics, compareLessons, typeCharacter, typingKeyInstruction } from '@codetype/shared';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-python';
 import 'prismjs/components/prism-javascript';
@@ -27,7 +27,25 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
     @if (started() && !done()) { <div class="typing-session-controls"><span class="typing-active-label">{{ t(paused() ? 'Práctica pausada' : 'Tiempo activo') }}</span><button class="button secondary" type="button" (click)="togglePause()">{{ paused() ? t('Reanudar') : t('Pausar') }}</button></div> }
     <section class="card typing-card"><div class="typing-code" (click)="focusEditor()" [attr.aria-label]="t('Fragmento de código para transcribir')"><pre [style.font-size.px]="fontSize()">@for (character of characters(); track $index) {<span [class]="character.className" [class.char-cursor]="$index === cursor()" [attr.aria-current]="$index === cursor() ? 'step' : null">{{ character.value }}</span>}</pre></div><textarea #editor class="typing-capture" [attr.aria-label]="t('Escribe el código tal como aparece. Pegar está desactivado.')" (keydown)="onKeyDown($event)" (beforeinput)="onBeforeInput($event)" (input)="clearNativeInput($event)" (paste)="$event.preventDefault()" (compositionstart)="onCompositionStart()" (compositionend)="onCompositionEnd($event)" [disabled]="done() || paused()" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea><div class="typing-hint" role="status" aria-live="polite"><span>{{ t('Siguiente carácter:') }} <kbd>{{ nextKeyLabel() }}</kbd></span>@if (inputFeedback()) { <strong>{{ inputFeedback() }}</strong> } @else { <span>{{ t('Pegar está desactivado.') }}</span> }</div></section>
     <div class="typing-support-grid"><section class="card typing-keyboard-card"><app-virtual-keyboard [layout]="layout()" [nextKey]="nextKey()" [shiftRequired]="shiftRequired()" /></section><section class="card typing-tip"><div class="eyebrow">{{ t('¿QUÉ HACE ESTE CÓDIGO?') }}</div><p>{{ t(item.tip) }}</p><span>{{ done() ? t('Fragmento completado') : t('Siguiente tecla:') + ' ' + nextKeyLabel() }}</span></section></div>
-    @if (done()) { <section class="card result-card"><div class="result-check">✓</div><div><h3>{{ t('¡Lección completada!') }}</h3><p>{{ t('Resultado:') }} {{ finalMetrics().accuracy }}% {{ t('de precisión') }} · {{ finalMetrics().wpm }} WPM. {{ t(saveMessage()) }}</p></div>@if (saveState() === 'error') { <button class="button secondary" (click)="submit()">{{ t('Reintentar guardado') }}</button> }<button class="button secondary" (click)="reset()">↻ {{ t('Repetir') }}</button></section> }
+    @if (done()) {
+      <section class="card result-card">
+        <div class="result-summary"><div class="result-check">{{ attemptPassed() ? '✓' : '!' }}</div><div><h3>{{ t(attemptPassed() ? '¡Lección aprobada!' : 'Práctica finalizada') }}</h3><p>{{ t('Resultado:') }} {{ finalMetrics().accuracy }}% {{ t('de precisión') }} · {{ finalMetrics().wpm }} WPM. {{ t(saveMessage()) }} @if (saveState() === 'saved' && !attemptPassed()) { {{ t('Necesitas al menos') }} {{ item.minAccuracy }}% {{ t('para aprobar. Puedes repetir la práctica.') }} }</p></div></div>
+        <div class="result-actions">
+          @if (saveState() === 'error') { <button class="button secondary" type="button" (click)="submit()">{{ t('Reintentar guardado') }}</button> }
+          <button class="button secondary" type="button" (click)="reset()">↻ {{ t('Repetir') }}</button>
+          <a class="button secondary" routerLink="/ejercicios">{{ t('Ver ejercicios') }}</a>
+        </div>
+        @if (nextLessonLoading()) { <div class="next-practice-loading" role="status">{{ t('Buscando la siguiente práctica…') }}</div> }
+        @if (nextLesson(); as next) {
+          <div class="next-practice-strip" role="status" aria-live="polite">
+            <div class="next-practice-copy"><span class="eyebrow">{{ t('SIGUIENTE PRÁCTICA') }}</span><strong>{{ t(next.title) }}</strong><small>{{ t(next.path) }} · {{ next.language }} · {{ t('Comienza en') }} {{ autoNextSeconds() }} {{ t('segundos') }}</small></div>
+            <strong class="next-practice-countdown" aria-label="{{ autoNextSeconds() }} {{ t('segundos restantes') }}">{{ autoNextSeconds() }}<small>s</small></strong>
+            <div class="next-practice-progress" role="progressbar" [attr.aria-valuenow]="30 - autoNextSeconds()" aria-valuemin="0" aria-valuemax="30" [attr.aria-label]="t('Tiempo hasta la siguiente práctica')"><span [style.width.%]="((30 - autoNextSeconds()) / 30) * 100"></span></div>
+            <button class="button primary next-practice-button" type="button" (click)="openNextLesson()">{{ t('Ir a la siguiente práctica') }} <span aria-hidden="true">→</span></button>
+          </div>
+        }
+      </section>
+    }
   }
   </div>
 ` })
@@ -35,6 +53,7 @@ export class TypingPageComponent {
   private readonly http = inject(HttpClient);
   private readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly routeId = toSignal(this.route.paramMap.pipe(map((params) => params.get('id'))), { initialValue: null });
   private readonly editor = viewChild<ElementRef<HTMLTextAreaElement>>('editor');
@@ -48,6 +67,7 @@ export class TypingPageComponent {
   private startedEffect = false;
   private deadKeyPending = false;
   private audioContext: AudioContext | null = null;
+  private autoNextInterval: ReturnType<typeof setInterval> | null = null;
   private settings: any = null;
   private lessonId = '';
   readonly lesson = signal<Lesson | null>(null);
@@ -60,6 +80,10 @@ export class TypingPageComponent {
   readonly started = signal(false);
   readonly paused = signal(false);
   readonly saveState = signal<SaveState>('idle');
+  readonly attemptPassed = signal(false);
+  readonly nextLesson = signal<Lesson | null>(null);
+  readonly nextLessonLoading = signal(false);
+  readonly autoNextSeconds = signal(30);
   readonly layout = signal('ES');
   readonly fontSize = signal(16);
   readonly metrics = signal(calculateMetrics(0, 0, 0));
@@ -74,6 +98,7 @@ export class TypingPageComponent {
   readonly saveMessage = () => this.saveState() === 'saving' ? 'Guardando tu intento…' : this.saveState() === 'saved' ? 'Intento guardado en tu cuenta.' : this.saveState() === 'error' ? 'No se pudo guardar el intento.' : '';
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.clearAutoNext());
     interval(250).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       if (this.startedAt !== null && !this.done() && !this.paused()) this.refreshMetrics();
     });
@@ -86,7 +111,7 @@ export class TypingPageComponent {
       const token = this.session.token();
       if (!token || this.startedEffect) return;
       this.startedEffect = true;
-      this.http.get<any>(`${API_URL}/settings`).subscribe({ next: (settings) => { this.settings = settings; this.layout.set(settings.keyboardLayout ?? 'ES'); this.fontSize.set(settings.editorFontSize ?? 16); this.updateView(); }, error: () => undefined });
+      this.http.get<any>(`${API_URL}/settings`).subscribe({ next: (settings) => { this.settings = settings; this.layout.set(settings.keyboardLayout ?? 'ES'); this.fontSize.set(Math.min(32, Math.max(12, Number(settings.editorFontSize) || 16))); this.updateView(); }, error: () => undefined });
     });
   }
 
@@ -240,14 +265,60 @@ export class TypingPageComponent {
     this.saveState.set('saving');
     try {
       const result = await firstValueFrom(this.http.post<any>(`${API_URL}/lessons/complete`, { lessonId: lesson.id, correctChars: this.cursor(), errors: this.errors(), durationMs: Math.round(durationMs), keystrokes: this.records }));
+      if (lesson.id !== this.lesson()?.id || !this.done()) return;
       this.finalMetrics.set(result.metrics);
       this.saveState.set('saved');
+      this.attemptPassed.set(result.passed === true);
+      if (result.passed === true) await this.prepareNextLesson(lesson);
       if (this.settings?.notifications) void window.codeTypeDesktop?.notifyPracticeComplete({ lessonTitle: lesson.title, accuracy: result.metrics.accuracy, wpm: result.metrics.wpm });
-    } catch { this.saveState.set('error'); }
+    } catch { if (lesson.id === this.lesson()?.id && this.done()) this.saveState.set('error'); }
   }
 
-  reset(): void { this.resetState(); this.updateView(); this.focusEditor(); }
-  private resetState(): void { this.records = []; this.bad.clear(); this.startedAt = null; this.started.set(false); this.pausedAt = null; this.pausedDuration = 0; this.paused.set(false); this.composing = false; this.compositionCommitted = null; this.cursor.set(0); this.errors.set(0); this.elapsed.set(0); this.done.set(false); this.saveState.set('idle'); this.inputFeedback.set(''); this.metrics.set(calculateMetrics(0, 0, 0)); this.finalMetrics.set(calculateMetrics(0, 0, 0)); this.clock.set('00:00'); }
+  private async prepareNextLesson(current: Lesson): Promise<void> {
+    this.nextLessonLoading.set(true);
+    this.nextLesson.set(null);
+    try {
+      const lessons = (await firstValueFrom(this.http.get<Lesson[]>(`${API_URL}/lessons`))).sort(compareLessons);
+      if (current.id !== this.lesson()?.id || !this.done()) return;
+      const available = lessons.filter((item) => item.id !== current.id && item.status === 'in_progress');
+      const currentIndex = lessons.findIndex((item) => item.id === current.id);
+      const sameLanguage = available.filter((item) => item.language === current.language);
+      const laterInLanguage = sameLanguage.filter((item) => lessons.findIndex((candidate) => candidate.id === item.id) > currentIndex);
+      const next = laterInLanguage[0] ?? sameLanguage[0] ?? available.find((item) => lessons.findIndex((candidate) => candidate.id === item.id) > currentIndex) ?? available[0] ?? null;
+      this.nextLesson.set(next);
+      if (next) this.startAutoNext();
+    } catch {
+      this.nextLesson.set(null);
+    } finally {
+      this.nextLessonLoading.set(false);
+    }
+  }
+
+  private startAutoNext(): void {
+    this.clearAutoNext();
+    this.autoNextSeconds.set(30);
+    this.autoNextInterval = setInterval(() => {
+      const remaining = this.autoNextSeconds();
+      if (remaining <= 1) { this.autoNextSeconds.set(0); this.clearAutoNext(); this.openNextLesson(); }
+      else this.autoNextSeconds.set(remaining - 1);
+    }, 1000);
+  }
+
+  private clearAutoNext(): void {
+    if (this.autoNextInterval !== null) clearInterval(this.autoNextInterval);
+    this.autoNextInterval = null;
+  }
+
+  async openNextLesson(): Promise<void> {
+    const next = this.nextLesson();
+    if (!next) return;
+    this.clearAutoNext();
+    this.nextLesson.set(null);
+    await this.router.navigate(['/leccion', next.id]);
+  }
+
+  reset(): void { this.clearAutoNext(); this.nextLesson.set(null); this.nextLessonLoading.set(false); this.resetState(); this.updateView(); this.focusEditor(); }
+  private resetState(): void { this.clearAutoNext(); this.nextLesson.set(null); this.nextLessonLoading.set(false); this.attemptPassed.set(false); this.records = []; this.bad.clear(); this.startedAt = null; this.started.set(false); this.pausedAt = null; this.pausedDuration = 0; this.paused.set(false); this.composing = false; this.compositionCommitted = null; this.cursor.set(0); this.errors.set(0); this.elapsed.set(0); this.done.set(false); this.saveState.set('idle'); this.inputFeedback.set(''); this.metrics.set(calculateMetrics(0, 0, 0)); this.finalMetrics.set(calculateMetrics(0, 0, 0)); this.clock.set('00:00'); }
 }
 
 function syntaxTypes(code: string, language: string): string[] {

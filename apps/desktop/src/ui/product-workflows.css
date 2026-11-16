@@ -53,7 +53,7 @@
 
 .typing-page .typing-code pre {
   width: 100%;
-  font-size: clamp(14px, 1.12vw, 18px) !important;
+  font-size: clamp(14px, 1.12vw, 18px);
   line-height: 1.75;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -284,6 +284,55 @@
 .settings-page-stack .danger-zone { margin-top: 20px; }
 .settings-page-stack .danger-zone > p { font-size: 12px; }
 
+.typing-page .result-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 10px 12px;
+}
+.result-summary { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.result-summary > div:last-child { min-width: 0; }
+.result-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+.result-actions .button, .next-practice-button { white-space: nowrap; }
+.next-practice-loading { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
+.next-practice-strip {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.next-practice-copy { display: grid; min-width: 0; gap: 2px; }
+.next-practice-copy .eyebrow { color: #aeb8ff; font-size: 9px; }
+.next-practice-copy strong { overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.next-practice-copy small { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.next-practice-countdown { grid-column: 2; grid-row: 1; color: #c6ccff; font-size: 21px; font-variant-numeric: tabular-nums; }
+.next-practice-countdown small { margin-left: 3px; color: var(--muted); font-size: 10px; }
+.next-practice-progress { height: 4px; grid-column: 1; grid-row: 2; overflow: hidden; border-radius: 99px; background: #35394a; }
+.next-practice-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #7b8cff); transition: width .9s linear; }
+.next-practice-button { grid-column: 2; grid-row: 2; padding: 7px 10px; font-size: 10px; }
+.settings-page-stack .editor-size-control { align-content: start; }
+.settings-page-stack .editor-font-preview {
+  width: 100%;
+  min-height: 56px;
+  overflow: hidden;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code);
+  color: #d6dcff;
+  font-family: var(--mono);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 @media (max-height: 760px) {
   .main-content:has(.typing-page) { padding-top: 8px; padding-bottom: 8px; }
   .typing-page { gap: 6px; }
@@ -304,7 +353,7 @@
 @media (max-width: 760px) {
   .typing-page .typing-support-grid { flex-basis: 132px; grid-template-columns: minmax(0, 1.15fr) minmax(170px, .9fr); }
   .typing-page .typing-tip p { -webkit-line-clamp: 2; }
-  .typing-page .typing-code pre { font-size: 13px !important; }
+  .typing-page .typing-code pre { font-size: 13px; }
   .statistics-page .stats-summary { grid-template-columns: minmax(0, 1fr); }
   .statistics-page .stats-lower { grid-template-columns: minmax(0, 1fr); }
   .statistics-page .heat-row { gap: 3px; }

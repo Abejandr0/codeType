@@ -9,7 +9,7 @@
 .typing-metrics small{font-size:11px;color:var(--muted)}
 .typing-metrics b{font-size:13px;color:var(--success);font-variant-numeric:tabular-nums}
 .typing-code{min-height:208px;padding:23px 26px}
-.typing-code pre{font-size:16px!important;line-height:1.8}
+.typing-code pre{font-size:16px;line-height:1.8}
 .typing-hint{margin-bottom:0}
 .typing-support-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(260px,1fr);gap:14px;margin-top:14px}
 .typing-keyboard-card,.typing-tip{min-height:154px;padding:17px!important}
