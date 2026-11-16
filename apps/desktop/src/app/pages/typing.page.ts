@@ -25,7 +25,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
     <div class="typing-session-header"><div><div class="eyebrow">{{ t('PRÁCTICA DE CÓDIGO') }}</div><h1>{{ t('Práctica de código') }}</h1><p>{{ t(item.title) }} · {{ t(item.path) }} · {{ t('Nivel') }} {{ item.level }}</p></div><div class="typing-clock"><strong>{{ clock() }}</strong><span>{{ item.language }}</span></div></div>
     <section class="card typing-metrics"><div><small>WPM</small><b>{{ metrics().wpm }}</b></div><div><small>{{ t('Precisión') }}</small><b>{{ metrics().accuracy }}%</b></div><div><small>{{ t('Errores') }}</small><b>{{ errors() }}</b></div><div><small>{{ t('Progreso') }}</small><b>{{ cursor() }} / {{ item.code.length }}</b></div></section>
     @if (started() && !done()) { <div class="typing-session-controls"><span class="typing-active-label">{{ t(paused() ? 'Práctica pausada' : 'Tiempo activo') }}</span><button class="button secondary" type="button" (click)="togglePause()">{{ paused() ? t('Reanudar') : t('Pausar') }}</button></div> }
-    <section class="card typing-card"><div class="typing-code" (click)="focusEditor()" [attr.aria-label]="t('Fragmento de código para transcribir')"><pre [style.font-size.px]="fontSize()">@for (character of characters(); track $index) { <span [class]="character.className">{{ character.value }}</span> }</pre></div><textarea #editor class="typing-capture" [attr.aria-label]="t('Escribe el código tal como aparece. Pegar está desactivado.')" (keydown)="onKeyDown($event)" (beforeinput)="onBeforeInput($event)" (input)="clearNativeInput($event)" (paste)="$event.preventDefault()" (compositionstart)="onCompositionStart()" (compositionend)="onCompositionEnd($event)" [disabled]="done() || paused()" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea><div class="typing-hint" role="status" aria-live="polite"><span>{{ t('Siguiente carácter:') }} <kbd>{{ nextKeyLabel() }}</kbd></span>@if (inputFeedback()) { <strong>{{ inputFeedback() }}</strong> } @else { <span>{{ t('Pegar está desactivado.') }}</span> }</div></section>
+    <section class="card typing-card"><div class="typing-code" (click)="focusEditor()" [attr.aria-label]="t('Fragmento de código para transcribir')"><pre [style.font-size.px]="fontSize()">@for (character of characters(); track $index) { <span [class]="character.className" [class.char-cursor]="$index === cursor()" [attr.aria-current]="$index === cursor() ? 'step' : null">{{ character.value }}</span> }</pre></div><textarea #editor class="typing-capture" [attr.aria-label]="t('Escribe el código tal como aparece. Pegar está desactivado.')" (keydown)="onKeyDown($event)" (beforeinput)="onBeforeInput($event)" (input)="clearNativeInput($event)" (paste)="$event.preventDefault()" (compositionstart)="onCompositionStart()" (compositionend)="onCompositionEnd($event)" [disabled]="done() || paused()" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea><div class="typing-hint" role="status" aria-live="polite"><span>{{ t('Siguiente carácter:') }} <kbd>{{ nextKeyLabel() }}</kbd></span>@if (inputFeedback()) { <strong>{{ inputFeedback() }}</strong> } @else { <span>{{ t('Pegar está desactivado.') }}</span> }</div></section>
     <div class="typing-support-grid"><section class="card typing-keyboard-card"><app-virtual-keyboard [layout]="layout()" [nextKey]="nextKey()" [shiftRequired]="shiftRequired()" /></section><section class="card typing-tip"><div class="eyebrow">{{ t('¿QUÉ HACE ESTE CÓDIGO?') }}</div><p>{{ t(item.tip) }}</p><span>{{ done() ? t('Fragmento completado') : t('Siguiente tecla:') + ' ' + nextKeyLabel() }}</span></section></div>
     @if (done()) { <section class="card result-card"><div class="result-check">✓</div><div><h3>{{ t('¡Lección completada!') }}</h3><p>{{ t('Resultado:') }} {{ finalMetrics().accuracy }}% {{ t('de precisión') }} · {{ finalMetrics().wpm }} WPM. {{ t(saveMessage()) }}</p></div>@if (saveState() === 'error') { <button class="button secondary" (click)="submit()">{{ t('Reintentar guardado') }}</button> }<button class="button secondary" (click)="reset()">↻ {{ t('Repetir') }}</button></section> }
   }
@@ -212,7 +212,7 @@ export class TypingPageComponent {
     const lesson = this.lesson();
     if (!lesson) return;
     const types = syntaxTypes(lesson.code, lesson.language);
-    this.characters.set(Array.from(lesson.code, (value, index) => ({ value, className: [types[index] ? `syntax-${types[index]}` : '', index < this.cursor() ? 'char-done' : '', index === this.cursor() ? 'char-cursor' : '', this.bad.has(index) ? 'char-error' : ''].filter(Boolean).join(' ') })));
+    this.characters.set(Array.from(lesson.code, (value, index) => ({ value, className: [types[index] ? `syntax-${types[index]}` : '', index < this.cursor() ? 'char-done' : '', this.bad.has(index) ? 'char-error' : ''].filter(Boolean).join(' ') })));
     const next = lesson.code[this.cursor()] ?? '';
     this.nextKey.set(next === '\n' ? 'Enter' : next === '\t' ? 'Tab' : next);
     const instruction = typingKeyInstruction(next, this.layout() as 'ES' | 'LATAM' | 'US');
@@ -224,10 +224,9 @@ export class TypingPageComponent {
   private mismatchMessage(expected: string, actual: string): string {
     const expectedLabel = this.readableKey(expected);
     const actualLabel = this.readableKey(actual);
-    const shiftHint = this.shiftRequired() ? ` ${this.t('Pulsa')} ${this.nextKeyLabel()}.` : '';
     return this.session.language() === 'EN'
       ? `Expected “${expectedLabel}”, received “${actualLabel}”.${this.shiftRequired() ? ` Press ${this.nextKeyLabel()}.` : ''}`
-      : `Se esperaba “${expectedLabel}” y llegó “${actualLabel}”.${shiftHint}`;
+      : `Se esperaba “${expectedLabel}” y llegó “${actualLabel}”. Corrige con ${this.nextKeyLabel()} para avanzar.`;
   }
 
   private readableKey(character: string): string {
