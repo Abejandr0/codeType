@@ -1,5 +1,7 @@
 # CodeType – Aprende a Programar
 
+Enlace video exposicion https://youtu.be/O54q_CxUdkI
+
 Monorepo TypeScript para aprender código mediante mecanografía. El renderer de escritorio usa Angular 21 y sigue como referencia el diseño entregado en `CodeType – Aprende a Programar.html`, con tokens compartidos y componentes reutilizables.
 
 ## Requisitos
